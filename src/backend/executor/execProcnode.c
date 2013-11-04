@@ -199,10 +199,10 @@ ExecInitNode(Plan *node, EState *estate, int eflags)
 														 estate, eflags);
 			break;
 
-		/*case T_BitmapIndexScan:
+		case T_BitmapIndexScan:
 			result = (PlanState *) ExecInitBitmapIndexScan((BitmapIndexScan *) node,
 														   estate, eflags);
-			break;*/
+			break;
 
 		case T_BitmapHeapScan:
 			result = (PlanState *) ExecInitBitmapHeapScan((BitmapHeapScan *) node,
