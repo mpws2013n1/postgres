@@ -184,10 +184,10 @@ ExecInitNode(Plan *node, EState *estate, int eflags)
 			/*
 			 * scan nodes
 			 */
-//		case T_SeqScan:
-//			result = (PlanState *) ExecInitSeqScan((SeqScan *) node,
-//												   estate, eflags);
-//			break;
+		case T_SeqScan:
+			result = (PlanState *) ExecInitSeqScan((SeqScan *) node,
+												   estate, eflags);
+			break;
 
 		case T_IndexScan:
 			result = (PlanState *) ExecInitIndexScan((IndexScan *) node,
