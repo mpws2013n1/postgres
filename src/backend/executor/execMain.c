@@ -297,8 +297,8 @@ standard_ExecutorRun(QueryDesc *queryDesc,
 	sendTuples = (operation == CMD_SELECT ||
 				  queryDesc->plannedstmt->hasReturning);
 
-	//if (sendTuples)
-	//	(*dest->rStartup) (dest, operation, queryDesc->tupDesc);
+	if (sendTuples)
+		(*dest->rStartup) (dest, operation, queryDesc->tupDesc);
 
 	/*
 	 * run plan
