@@ -1471,6 +1471,8 @@ ExecutePlan(EState *estate,
 
 	printf("stadistinct of attribute %s (number: %d) from relation %s (Oid: %d): %f\n", attName, attNumber, relName, relId, statStruct->stadistinct);
 
+	ReleaseSysCache(statsTuple);
+
 	/*
 	 * Loop until we've processed the proper number of tuples from the plan.
 	 */
