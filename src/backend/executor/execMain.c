@@ -44,6 +44,7 @@
 #include "catalog/namespace.h"
 #include "commands/matview.h"
 #include "commands/trigger.h"
+#include "commands/vacuum.h"
 #include "executor/execdebug.h"
 #include "foreign/fdwapi.h"
 #include "mb/pg_wchar.h"
@@ -57,6 +58,7 @@
 #include "utils/lsyscache.h"
 #include "utils/memutils.h"
 #include "utils/snapmgr.h"
+#include "utils/syscache.h"
 #include "utils/tqual.h"
 
 
@@ -1457,6 +1459,17 @@ ExecutePlan(EState *estate,
 	 * Set the direction.
 	 */
 	estate->es_direction = direction;
+
+	Oid relId = get_relname_relid("orders", 2200);
+	unsigned int attNumber = get_attnum(relId, "totalamount");
+	char *attName = get_attname(relId, attNumber);
+	char *relName = get_rel_name(relId);
+	HeapTuple statsTuple = SearchSysCache3(STATRELATTINH, ObjectIdGetDatum(relId),
+													Int16GetDatum(attNumber),
+													BoolGetDatum(false));
+	Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
+
+	printf("stadistinct of attribute %s (number: %d) from relation %s (Oid: %d): %f\n", attName, attNumber, relName, relId, statStruct->stadistinct);
 
 	/*
 	 * Loop until we've processed the proper number of tuples from the plan.
