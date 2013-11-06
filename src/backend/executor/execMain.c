@@ -49,6 +49,7 @@
 #include "foreign/fdwapi.h"
 #include "mb/pg_wchar.h"
 #include "miscadmin.h"
+#include "nodes/pg_list.h"
 #include "optimizer/clauses.h"
 #include "parser/parsetree.h"
 #include "storage/bufmgr.h"
@@ -145,6 +146,14 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
 	 */
 	estate = CreateExecutorState();
 	queryDesc->estate = estate;
+
+	ListCell *cell;
+	foreach(cell, queryDesc->plannedstmt->relationOids) {
+		void *ptr_value = cell->data.ptr_value;
+		if (ptr_value) {
+			printf("Oid of a relation that is referenced in the plan: %d\n", (unsigned int*)ptr_value);
+		}
+	}
 
 	oldcontext = MemoryContextSwitchTo(estate->es_query_cxt);
 
