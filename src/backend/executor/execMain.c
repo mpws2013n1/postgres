@@ -1460,18 +1460,18 @@ ExecutePlan(EState *estate,
 	 */
 	estate->es_direction = direction;
 
-	Oid relId = get_relname_relid("orders", 2200);
+	unsigned int relId = get_relname_relid("orders", 2200);
 	unsigned int attNumber = get_attnum(relId, "totalamount");
 	char *attName = get_attname(relId, attNumber);
 	char *relName = get_rel_name(relId);
 	HeapTuple statsTuple = SearchSysCache3(STATRELATTINH, ObjectIdGetDatum(relId),
 													Int16GetDatum(attNumber),
 													BoolGetDatum(false));
-	Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
-
-	printf("stadistinct of attribute %s (number: %d) from relation %s (Oid: %d): %f\n", attName, attNumber, relName, relId, statStruct->stadistinct);
-
-	ReleaseSysCache(statsTuple);
+	if (statsTuple) {
+		Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
+		printf("stadistinct of attribute %s (number: %d) from relation %s (Oid: %d): %f\n", attName, attNumber, relName, relId, statStruct->stadistinct);
+		ReleaseSysCache(statsTuple);
+	}
 
 	/*
 	 * Loop until we've processed the proper number of tuples from the plan.
