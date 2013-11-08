@@ -532,6 +532,18 @@ PortalStart(Portal portal, ParamListInfo params,
 				 */
 				ExecutorStart(queryDesc, myeflags);
 
+				int numberOfAtts = queryDesc->tupDesc->natts;
+				printf("number of attributes in result: %d\n", numberOfAtts);
+
+				Form_pg_attribute *attrList = queryDesc->tupDesc->attrs;
+				Form_pg_attribute attr;
+				int i;
+				for (i = 0; i < numberOfAtts; i++) {
+					attr = attrList[i];
+					char *name = attr->attname.data;
+					printf("attribute name: %s\n", name);
+				}
+
 				/*
 				 * This tells PortalCleanup to shut down the executor
 				 */
