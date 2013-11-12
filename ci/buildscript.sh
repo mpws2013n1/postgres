@@ -4,6 +4,7 @@ bin/pg_ctl stop -l logfile -D Dataspace
 cd pgsql
 ./configure --prefix=/var/lib/jenkins/jobs/mpws2013n1/workspace --enable-depend --enable-cassert --enable-debug
 make
+make
 make install
 cd ..
 bin/pg_ctl start -l logfile -D Dataspace
