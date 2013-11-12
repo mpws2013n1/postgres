@@ -210,33 +210,33 @@ ExecInitSeqScan(SeqScan *node, EState *estate, int eflags)
 	ExecAssignResultTypeFromTL(&scanstate->ps);
 	ExecAssignScanProjectionInfo(scanstate);
 
-	TupleTableSlot *tts = scanstate->ps.ps_ResultTupleSlot;
-	if (tts && tts->tts_tupleDescriptor) {
-		int numberOfAtts = tts->tts_tupleDescriptor->natts;
-		printf("number of attributes in result: %d\n", numberOfAtts);
-
-		Form_pg_attribute *resultAttrList = tts->tts_tupleDescriptor->attrs;
-		if (scanstate->ss_currentRelation) {
-			unsigned int relOid = scanstate->ss_currentRelation->rd_id;
-			Form_pg_attribute attr;
-			int i;
-			for (i = 0; i < numberOfAtts; i++) {
-				attr = resultAttrList[i];
-				char *attName = attr->attname.data;
-				char *relName = scanstate->ss_currentRelation->rd_rel->relname.data;
-				unsigned int attNumber = attr->attnum;
-
-				HeapTuple statsTuple = SearchSysCache3(STATRELATTINH, ObjectIdGetDatum(relOid),
-																Int16GetDatum(attNumber),
-																BoolGetDatum(false));
-				if (statsTuple) {
-					Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
-					printf("stadistinct of attribute %s (number: %d) from relation %s (Oid: %d): %f\n", attName, attNumber, relName, relOid, statStruct->stadistinct);
-					ReleaseSysCache(statsTuple);
-				}
-			}
-		}
-	}
+//	TupleTableSlot *tts = scanstate->ps.ps_ResultTupleSlot;
+//	if (tts && tts->tts_tupleDescriptor) {
+//		int numberOfAtts = tts->tts_tupleDescriptor->natts;
+//		printf("number of attributes in result: %d\n", numberOfAtts);
+//
+//		Form_pg_attribute *resultAttrList = tts->tts_tupleDescriptor->attrs;
+//		if (scanstate->ss_currentRelation) {
+//			unsigned int relOid = scanstate->ss_currentRelation->rd_id;
+//			Form_pg_attribute attr;
+//			int i;
+//			for (i = 0; i < numberOfAtts; i++) {
+//				attr = resultAttrList[i];
+//				char *attName = attr->attname.data;
+//				char *relName = scanstate->ss_currentRelation->rd_rel->relname.data;
+//				unsigned int attNumber = attr->attnum;
+//
+//				HeapTuple statsTuple = SearchSysCache3(STATRELATTINH, ObjectIdGetDatum(relOid),
+//																Int16GetDatum(attNumber),
+//																BoolGetDatum(false));
+//				if (statsTuple) {
+//					Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
+//					printf("stadistinct of attribute %s (number: %d) from relation %s (Oid: %d): %f\n", attName, attNumber, relName, relOid, statStruct->stadistinct);
+//					ReleaseSysCache(statsTuple);
+//				}
+//			}
+//		}
+//	}
 
 	return scanstate;
 }

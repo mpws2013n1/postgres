@@ -40,8 +40,10 @@
 #include "rusagestub.h"
 #endif
 
+#include "access/htup_details.h"
 #include "access/printtup.h"
 #include "access/xact.h"
+#include "catalog/pg_statistic.h"
 #include "catalog/pg_type.h"
 #include "commands/async.h"
 #include "commands/prepare.h"
@@ -71,7 +73,10 @@
 #include "utils/lsyscache.h"
 #include "utils/memutils.h"
 #include "utils/ps_status.h"
+#include "utils/rel.h"
+#include "utils/relcache.h"
 #include "utils/snapmgr.h"
+#include "utils/syscache.h"
 #include "utils/timeout.h"
 #include "utils/timestamp.h"
 #include "mb/pg_wchar.h"
@@ -973,6 +978,29 @@ exec_simple_query(const char *query_string)
 
 		querytree_list = pg_analyze_and_rewrite(parsetree, query_string,
 												NULL, 0);
+		ListCell *queryCell, *targetCell;
+		foreach(queryCell, querytree_list) {
+			Query	   *query = (Query *) lfirst(queryCell);
+			List *targetEntries = query->targetList;
+			foreach(targetCell, targetEntries) {
+				TargetEntry *tle = (TargetEntry *) lfirst(targetCell);
+				unsigned int attNumber = tle->resorigcol;
+				unsigned int relOid = tle->resorigtbl;
+				char *attName = tle->resname;
+				Relation rel = RelationIdGetRelation(relOid);
+				char *relName = rel->rd_rel->relname.data;
+
+				HeapTuple statsTuple = SearchSysCache3(STATRELATTINH, ObjectIdGetDatum(relOid),
+																Int16GetDatum(attNumber),
+																BoolGetDatum(false));
+				if (statsTuple) {
+					Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
+					printf("stadistinct of attribute %s (number: %d) from relation %s (Oid: %d): %f\n", attName, attNumber, relName, relOid, statStruct->stadistinct);
+					ReleaseSysCache(statsTuple);
+				}
+				RelationClose(rel);
+			}
+		}
 
 		plantree_list = pg_plan_queries(querytree_list, 0, NULL);
 
