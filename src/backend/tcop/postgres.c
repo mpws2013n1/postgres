@@ -3558,6 +3558,7 @@ PostgresMain(int argc, char *argv[],
 	StringInfoData input_message;
 	sigjmp_buf	local_sigjmp_buf;
 	volatile bool send_ready_for_query = true;
+	char *statistics_query = "";
 
 	/*
 	 * Initialize globals (already done if under postmaster, but not if
@@ -3961,6 +3962,7 @@ PostgresMain(int argc, char *argv[],
 
 				set_ps_display("idle", false);
 				pgstat_report_activity(STATE_IDLE, NULL);
+
 			}
 
 			ReadyForQuery(whereToSendOutput);
@@ -3976,9 +3978,15 @@ PostgresMain(int argc, char *argv[],
 		DoingCommandRead = true;
 
 		/*
-		 * (3) read a command (loop blocks here)
+		 * (3) read a command (loop blocks here, unless statistics need to be
+		 * fetched)
 		 */
-		firstchar = ReadCommand(&input_message);
+		if (!strcmp(statistics_query, "")) 		//if strcmp==0, statistics_query is empty
+			firstchar = ReadCommand(&input_message);
+		else {
+			firstchar = ReadCommand(&input_message);
+			firstchar = 'G'; //for "G"enerate statistics
+		}
 
 		/*
 		 * (4) disable async signal conditions again.
@@ -4004,8 +4012,9 @@ PostgresMain(int argc, char *argv[],
 
 		switch (firstchar)
 		{
-			case 'Q':			/* simple query */
+			case 'Q':			/* simple query */ //TODO simple query case
 				{
+					printf("-- case Q\n");
 					const char *query_string;
 
 					/* Set statement_timestamp() */
@@ -4016,10 +4025,52 @@ PostgresMain(int argc, char *argv[],
 
 					if (am_walsender)
 						exec_replication_command(query_string);
-					else
-						exec_simple_query(query_string);
+					else{
+						/*char prequery[100] = "SELECT count(*) FROM (";
+						strcat(prequery, query_string);
+						prequery[strlen(prequery)-1] = '\0';
+
+						strcat(prequery, ") as SUB;");
+						exec_simple_query(prequery);*/
+						exec_simple_query(query_string);}
 
 					send_ready_for_query = true;
+					statistics_query = "SELECT count(*) FROM categories;";
+				}
+				break;
+
+			case 'G':			/* generate statistics */
+				{
+					printf("-- case G\n");
+					const char *statistics_query_string;
+
+					StringInfoData statistics_message;
+					initStringInfo(&statistics_message);
+
+					appendBinaryStringInfo(&statistics_message, statistics_query,
+							strlen(statistics_query)+1);
+
+					/* Set statement_timestamp() */
+					SetCurrentStatementStartTimestamp();
+
+					printf("create query string");
+					statistics_query_string = pq_getmsgstring(&statistics_message);
+					pq_getmsgend(&statistics_message);
+
+					printf("got message");
+					if (am_walsender)
+						exec_replication_command(statistics_query_string);
+					else{
+						/*char prequery[100] = "SELECT count(*) FROM (";
+						strcat(prequery, query_string);
+						prequery[strlen(prequery)-1] = '\0';
+
+						strcat(prequery, ") as SUB;");
+						exec_simple_query(prequery);*/
+						exec_simple_query(statistics_query_string);}
+
+					send_ready_for_query = true;
+					statistics_query = "";
 				}
 				break;
 
