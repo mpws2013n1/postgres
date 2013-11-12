@@ -36,3 +36,4 @@ lib*.pc
 /Release/
 /.cproject
 /.project
+/.settings/
