@@ -987,18 +987,18 @@ exec_simple_query(const char *query_string)
 				unsigned int attNumber = tle->resorigcol;
 				unsigned int relOid = tle->resorigtbl;
 				char *attName = tle->resname;
-				Relation rel = RelationIdGetRelation(relOid);
-				char *relName = rel->rd_rel->relname.data;
+				//Relation rel = RelationIdGetRelation(relOid);
+				//char *relName = rel->rd_rel->relname.data;
 
 				HeapTuple statsTuple = SearchSysCache3(STATRELATTINH, ObjectIdGetDatum(relOid),
 																Int16GetDatum(attNumber),
 																BoolGetDatum(false));
 				if (statsTuple) {
 					Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
-					printf("stadistinct of attribute %s (number: %d) from relation %s (Oid: %d): %f\n", attName, attNumber, relName, relOid, statStruct->stadistinct);
+					printf("stadistinct of attribute %s (number: %d) from relation %s (Oid: %d): %f\n", attName, attNumber, "relName", relOid, statStruct->stadistinct);
 					ReleaseSysCache(statsTuple);
 				}
-				RelationClose(rel);
+				//RelationClose(rel);
 			}
 		}
 

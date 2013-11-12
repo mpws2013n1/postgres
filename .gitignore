@@ -37,3 +37,4 @@ lib*.pc
 /.cproject
 /.project
 /.settings/
+/src/test/*
