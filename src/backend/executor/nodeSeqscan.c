@@ -223,7 +223,7 @@ ExecInitSeqScan(SeqScan *node, EState *estate, int eflags)
 			for (i = 0; i < numberOfAtts; i++) {
 				attr = resultAttrList[i];
 				char *attName = attr->attname.data;
-				char *relName = get_rel_name(relOid);
+				char *relName = scanstate->ss_currentRelation->rd_rel->relname.data;
 				unsigned int attNumber = attr->attnum;
 
 				HeapTuple statsTuple = SearchSysCache3(STATRELATTINH, ObjectIdGetDatum(relOid),
