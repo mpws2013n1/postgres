@@ -532,17 +532,19 @@ PortalStart(Portal portal, ParamListInfo params,
 				 */
 				ExecutorStart(queryDesc, myeflags);
 
-				int numberOfAtts = queryDesc->tupDesc->natts;
-				printf("number of attributes in result: %d\n", numberOfAtts);
-
-				Form_pg_attribute *attrList = queryDesc->tupDesc->attrs;
-				Form_pg_attribute attr;
-				int i;
-				for (i = 0; i < numberOfAtts; i++) {
-					attr = attrList[i];
-					char *name = attr->attname.data;
-					printf("attribute name: %s\n", name);
-				}
+//				int numberOfAtts = queryDesc->tupDesc->natts;
+//				printf("number of attributes in result: %d\n", numberOfAtts);
+//
+//				Form_pg_attribute *attrList = queryDesc->tupDesc->attrs;
+//				Form_pg_attribute attr;
+//				int i;
+//				//unsigned int relId = PG_GETARG_OID(0);
+//				for (i = 0; i < numberOfAtts; i++) {
+//					attr = attrList[i];
+//					char *name = attr->attname.data;
+//					unsigned int relOid = attr->attrelid;
+//					printf("attribute name: %s, relOid: %d\n", name, relOid);
+//				}
 
 				/*
 				 * This tells PortalCleanup to shut down the executor
