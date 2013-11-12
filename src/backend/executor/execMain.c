@@ -147,14 +147,6 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
 	estate = CreateExecutorState();
 	queryDesc->estate = estate;
 
-	ListCell *cell;
-	foreach(cell, queryDesc->plannedstmt->relationOids) {
-		void *ptr_value = cell->data.ptr_value;
-		if (ptr_value) {
-			printf("Oid of a relation that is referenced in the plan: %d\n", (unsigned int*)ptr_value);
-		}
-	}
-
 	oldcontext = MemoryContextSwitchTo(estate->es_query_cxt);
 
 	/*
@@ -278,6 +270,28 @@ standard_ExecutorRun(QueryDesc *queryDesc,
 
 	/* sanity checks */
 	Assert(queryDesc != NULL);
+
+//	int numberOfAtts = queryDesc->tupDesc->natts;
+//
+//	Form_pg_attribute *attrList = queryDesc->tupDesc->attrs;
+//	Form_pg_attribute attr;
+//	int i;
+//	for (i = 0; i < numberOfAtts; i++) {
+//		attr = attrList[i];
+//		char *attName = attr->attname.data;
+//		unsigned int relOid = attr->attrelid;
+//		int16 attNumber = attr->attnum;
+//		char *relName = get_rel_name(relOid);
+//
+//		HeapTuple statsTuple = SearchSysCache3(STATRELATTINH, ObjectIdGetDatum(relOid),
+//															Int16GetDatum(attNumber),
+//															BoolGetDatum(false));
+//		if (statsTuple) {
+//			Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
+//			printf("stadistinct of attribute %s (number: %d) from relation %s (Oid: %d): %f\n", attName, attNumber, relName, relOid, statStruct->stadistinct);
+//			ReleaseSysCache(statsTuple);
+//		}
+//	}
 
 	estate = queryDesc->estate;
 
@@ -1469,18 +1483,19 @@ ExecutePlan(EState *estate,
 	 */
 	estate->es_direction = direction;
 
-	unsigned int relId = get_relname_relid("orders", 2200);
-	unsigned int attNumber = get_attnum(relId, "totalamount");
-	char *attName = get_attname(relId, attNumber);
-	char *relName = get_rel_name(relId);
-	HeapTuple statsTuple = SearchSysCache3(STATRELATTINH, ObjectIdGetDatum(relId),
-													Int16GetDatum(attNumber),
-													BoolGetDatum(false));
-	if (statsTuple) {
-		Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
-		printf("stadistinct of attribute %s (number: %d) from relation %s (Oid: %d): %f\n", attName, attNumber, relName, relId, statStruct->stadistinct);
-		ReleaseSysCache(statsTuple);
-	}
+//	unsigned int namespaceId = get_namespace_oid("public", true);
+//	unsigned int relId = get_relname_relid("orders", namespaceId);
+//	unsigned int attNumber = get_attnum(relId, "totalamount");
+//	char *attName = get_attname(relId, attNumber);
+//	char *relName = get_rel_name(relId);
+//	HeapTuple statsTuple = SearchSysCache3(STATRELATTINH, ObjectIdGetDatum(relId),
+//													Int16GetDatum(attNumber),
+//													BoolGetDatum(false));
+//	if (statsTuple) {
+//		Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
+//		printf("stadistinct of attribute %s (number: %d) from relation %s (Oid: %d): %f\n", attName, attNumber, relName, relId, statStruct->stadistinct);
+//		ReleaseSysCache(statsTuple);
+//	}
 
 	/*
 	 * Loop until we've processed the proper number of tuples from the plan.
