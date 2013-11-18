@@ -932,6 +932,7 @@ exec_simple_query(const char *query_string)
 		 * destination.
 		 */
 		commandTag = CreateCommandTag(parsetree);
+		printf("for each: %s \n", commandTag);
 
 		set_ps_display(commandTag, false);
 
@@ -3981,12 +3982,12 @@ PostgresMain(int argc, char *argv[],
 		 * (3) read a command (loop blocks here, unless statistics need to be
 		 * fetched)
 		 */
-		if (!strcmp(statistics_query, "")) 		//if strcmp==0, statistics_query is empty
+		//if (!strcmp(statistics_query, "")) 		//if strcmp==0, statistics_query is empty
 			firstchar = ReadCommand(&input_message);
-		else {
-			firstchar = ReadCommand(&input_message);
-			firstchar = 'G'; //for "G"enerate statistics
-		}
+		//else {
+		//	ReadCommand(&input_message);
+		//	firstchar = 'G'; //for "G"enerate statistics
+		//}
 
 		/*
 		 * (4) disable async signal conditions again.
@@ -4014,7 +4015,6 @@ PostgresMain(int argc, char *argv[],
 		{
 			case 'Q':			/* simple query */ //TODO simple query case
 				{
-					printf("-- case Q\n");
 					const char *query_string;
 
 					/* Set statement_timestamp() */
@@ -4023,19 +4023,26 @@ PostgresMain(int argc, char *argv[],
 					query_string = pq_getmsgstring(&input_message);
 					pq_getmsgend(&input_message);
 
-					if (am_walsender)
+					if (am_walsender){
 						exec_replication_command(query_string);
+					}
 					else{
-						/*char prequery[100] = "SELECT count(*) FROM (";
-						strcat(prequery, query_string);
-						prequery[strlen(prequery)-1] = '\0';
+						char full_query[200] = "";
+						strcat(full_query, query_string);
 
-						strcat(prequery, ") as SUB;");
-						exec_simple_query(prequery);*/
-						exec_simple_query(query_string);}
+						strcat(full_query,"SELECT count(*) FROM (");
+						strcat(full_query, query_string);
+						full_query[strlen(full_query)-1] = '\0';
+
+						strcat(full_query, ") as Count;");
+
+						printf("Executing: ");
+						printf("%s\n", full_query);
+
+						exec_simple_query(full_query);
+					}
 
 					send_ready_for_query = true;
-					statistics_query = "SELECT count(*) FROM categories;";
 				}
 				break;
 
@@ -4067,7 +4074,8 @@ PostgresMain(int argc, char *argv[],
 
 						strcat(prequery, ") as SUB;");
 						exec_simple_query(prequery);*/
-						exec_simple_query(statistics_query_string);}
+						exec_simple_query(statistics_query_string);
+					}
 
 					send_ready_for_query = true;
 					statistics_query = "";
