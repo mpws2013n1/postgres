@@ -3420,7 +3420,8 @@ SELECT format('Testing %3$s, %2$s, %s', 'one', 'two', 'three');
 
   <para>
    See also the aggregate function <function>string_agg</function> in
-   <xref linkend="functions-aggregate">.
+   <xref linkend="functions-aggregate"> and the large object functions
+   in <xref linkend="lo-funcs">.
   </para>
  </sect1>
 
@@ -6687,6 +6688,48 @@ SELECT SUBSTRING('XY1234Z', 'Y*?([0-9]{1,3})');
         </entry>
         <entry></entry>
         <entry></entry>
+       </row>
+
+       <row>
+        <entry>
+         <indexterm>
+          <primary>make_date</primary>
+         </indexterm>
+         <literal>
+            <function>
+             make_date(<parameter>year</parameter> <type>int</type>,
+             <parameter>month</parameter> <type>int</type>,
+             <parameter>day</parameter> <type>int</type>)
+            </function>
+         </literal>
+        </entry>
+        <entry><type>date</type></entry>
+        <entry>
+         Create date from year, month and day fields
+        </entry>
+        <entry><literal>make_date(2013, 7, 15)</literal></entry>
+        <entry><literal>2013-07-15</literal></entry>
+       </row>
+
+       <row>
+        <entry>
+         <indexterm>
+          <primary>make_time</primary>
+         </indexterm>
+         <literal>
+          <function>
+           make_time(<parameter>hour</parameter> <type>int</type>,
+           <parameter>min</parameter> <type>int</type>,
+           <parameter>sec</parameter> <type>double precision</type>)
+          </function>
+         </literal>
+        </entry>
+        <entry><type>time</type></entry>
+        <entry>
+         Create time from hour, minute and seconds fields
+        </entry>
+        <entry><literal>make_time(8, 15, 23.5)</literal></entry>
+        <entry><literal>08:15:23.5</literal></entry>
        </row>
 
        <row>
@@ -13468,7 +13511,7 @@ SELECT * FROM unnest2(ARRAY[[1,2],[3,4]]);
 <programlisting>
 -- set returning function WITH ORDINALITY
 SELECT * FROM pg_ls_dir('.') WITH ORDINALITY AS t(ls,n);
-       ls        | n  
+       ls        | n
 -----------------+----
  pg_serial       |  1
  pg_twophase     |  2
