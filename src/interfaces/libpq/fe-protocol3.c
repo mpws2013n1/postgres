@@ -196,6 +196,12 @@ pqParseInput3(PGconn *conn)
 			 */
 			switch (id)
 			{
+				case 'X':
+					pqGets(&conn->workBuffer, conn);
+					printf("%s", conn->workBuffer.data);
+					pqGets(&conn->workBuffer, conn);
+					printf("%s\n", conn->workBuffer.data);
+					break;
 				case 'C':		/* command complete */
 					if (pqGets(&conn->workBuffer, conn))
 						return;

@@ -995,6 +995,17 @@ exec_simple_query(const char *query_string)
 																BoolGetDatum(false));
 				if (statsTuple) {
 					Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
+
+					StringInfoData buf;
+					pq_beginmessage(&buf, 'X');
+					pq_sendstring(&buf, "stadistinct of attribute ");
+					pq_sendstring(&buf, "blub");
+//					pq_sendbytes(&buf, attName, sizeof(attName));
+//					pq_sendbytes(&buf, " (number: ", sizeof(" (number: "));
+//					pq_sendint(&buf, attNumber, 4);
+
+					pq_endmessage(&buf);
+
 					printf("stadistinct of attribute %s (number: %d) from relation %s (Oid: %d): %f\n", attName, attNumber, "relName", relOid, statStruct->stadistinct);
 					ReleaseSysCache(statsTuple);
 				}
