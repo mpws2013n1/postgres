@@ -116,19 +116,9 @@
 #include "utils/hsearch.h"
 #include "utils/builtins.h"
 #include "nodes/pg_list.h"
+#include "piggyback/piggyback.h"
 
-/*
- * mp2013
- */
-typedef struct _piggyback {
-	Plan *root;
-	HTAB **distinctValues;
-	bool newProcessing;
-	int numberOfAttributes;
-	List* columnNames;
-} Piggyback;
-
-Piggyback *piggyback;
+extern Piggyback *piggyback;
 
 /* ------------------------------------------------------------------------
  *		ExecInitNode
@@ -157,23 +147,10 @@ ExecInitNode(Plan *node, EState *estate, int eflags)
 	if (node == NULL)
 		return NULL;
 
-	/*
-	 * Initialize piggyback if not already done.
-	 */
-	if(!piggyback)
-	{
-		piggyback = (Piggyback*)(malloc(sizeof(Piggyback)));
-
-		// Save root node for later processing.
-		piggyback->root = node;
-
-		// Flag to recognize first processing of root node.
-		piggyback->newProcessing = true;
-
-		//init attribute list
-		piggyback->columnNames = NIL;
+	if(!piggyback) {
+		initPiggyback();
+		setPiggybackRootNode(node);
 	}
-
 
 	switch (nodeTag(node))
 	{
@@ -568,7 +545,6 @@ ExecProcNode(PlanState *node)
 			// Create a hash table for one column each.
 			for (i = 0; i < numberOfAtts; i++) {
 				//printf("initialize hash table for attribute id: %d\n", i);
-				sprintf(hashTableName, "column%d", i);
 
 				// Save column names.
 				attr = attrList[i];
@@ -576,6 +552,7 @@ ExecProcNode(PlanState *node)
 				piggyback->columnNames = lappend(piggyback->columnNames, name);
 
 				// Create a hash table for one column each.
+				sprintf(hashTableName, "column%d", i);
 				piggyback->distinctValues[i] = hash_create(hashTableName, 10, uselessHashInfo, 0);
 			}
 		}
@@ -702,13 +679,7 @@ ExecEndNode(PlanState *node)
 {
 	// TODO: remove memory leak
 	if(piggyback) {
-		int i;
-
-		for (i = 0; i < piggyback->numberOfAttributes; i++) {
-			char * columnName = (char *)list_nth(piggyback->columnNames, i);
-			long distinctValues = hash_get_num_entries(piggyback->distinctValues[i]);
-			printf("column %s (%d) has %ld distinct values.\n", columnName, i, distinctValues);
-		}
+		printMetaData();
 
 		piggyback = NULL;
 	}
