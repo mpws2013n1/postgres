@@ -62,6 +62,8 @@
 #include "utils/syscache.h"
 #include "utils/tqual.h"
 
+//#include "include/executor/execProcnode.h"
+
 
 /* Hooks for plugins to get control in ExecutorStart/Run/Finish/End */
 ExecutorStart_hook_type ExecutorStart_hook = NULL;
@@ -207,6 +209,7 @@ standard_ExecutorStart(QueryDesc *queryDesc, int eflags)
 	/*
 	 * Initialize the plan state tree
 	 */
+
 	InitPlan(queryDesc, eflags);
 
 	/*
@@ -907,6 +910,7 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 	 * tree.  This opens files, allocates storage and leaves us ready to start
 	 * processing tuples.
 	 */
+
 	planstate = ExecInitNode(plan, estate, eflags);
 
 	/*
@@ -1508,6 +1512,7 @@ ExecutePlan(EState *estate,
 		/*
 		 * Execute the plan and obtain a tuple
 		 */
+		//piggyback = NULL;
 		slot = ExecProcNode(planstate);
 
 		/*

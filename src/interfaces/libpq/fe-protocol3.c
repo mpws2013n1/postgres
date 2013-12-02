@@ -194,8 +194,25 @@ pqParseInput3(PGconn *conn)
 			/*
 			 * In BUSY state, we can process everything.
 			 */
+			int numberOfColumns = 0;
+			int columnid = -1;
+			int n_distinct = -42;
+			int i;
+
 			switch (id)
 			{
+				case 'X':
+					pqGetInt(&numberOfColumns, 4, conn);
+					for (i = 0; i < numberOfColumns; i++) {
+						pqGets(&conn->workBuffer, conn);
+						printf("Column %s", conn->workBuffer.data);
+						pqGetInt(&columnid, 4, conn);
+						printf(" (%d)", columnid);
+						pqGetInt(&n_distinct, 4, conn);
+						printf(" has %d distinct values.\n", n_distinct);
+					}
+					break;
+
 				case 'C':		/* command complete */
 					if (pqGets(&conn->workBuffer, conn))
 						return;

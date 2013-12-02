@@ -17,4 +17,4 @@
 <stringAttribute key="org.eclipse.cdt.launch.launchGroup.3.enabled" value="true"/>
 <stringAttribute key="org.eclipse.cdt.launch.launchGroup.3.mode" value="debug"/>
 <stringAttribute key="org.eclipse.cdt.launch.launchGroup.3.name" value="psql"/>
-</launchConfiguration>
+
