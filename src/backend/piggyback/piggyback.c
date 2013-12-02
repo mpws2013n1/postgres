@@ -57,9 +57,18 @@ void printDistinctValues() {
 	if(!piggyback) return;
 	int i;
 
+	StringInfoData buf;
+	pq_beginmessage(&buf, 'X');
+	pq_sendint(&buf, piggyback->numberOfAttributes, 4);
+
 	for (i = 0; i < piggyback->numberOfAttributes; i++) {
 		char * columnName = (char *)list_nth(piggyback->columnNames, i);
 		long distinctValues = hash_get_num_entries(piggyback->distinctValues[i]);
 		printf("column %s (%d) has %ld distinct values.\n", columnName, i, distinctValues);
+		pq_sendstring(&buf, columnName);
+		pq_sendint(&buf, i, 4);
+		pq_sendint(&buf, distinctValues, 4);
 	}
+
+	pq_endmessage(&buf);
 }

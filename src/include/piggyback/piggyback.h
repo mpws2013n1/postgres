@@ -12,9 +12,11 @@
 #ifndef PIGGYBACK_H
 #define PIGGYBACK_H
 
+#include "lib/stringinfo.h"
+#include "libpq/pqformat.h"
+#include "nodes/pg_list.h"
 #include "nodes/plannodes.h"
 #include "utils/hsearch.h"
-#include "nodes/pg_list.h"
 
 extern void printIt();
 
