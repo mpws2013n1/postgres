@@ -38,3 +38,4 @@ lib*.pc
 /.project
 /.settings/
 /src/test/*
+*.launch
