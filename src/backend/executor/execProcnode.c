@@ -113,6 +113,12 @@
 #include "executor/nodeWorktablescan.h"
 #include "miscadmin.h"
 
+#include "utils/hsearch.h"
+#include "utils/builtins.h"
+#include "nodes/pg_list.h"
+#include "piggyback/piggyback.h"
+
+extern Piggyback *piggyback;
 
 /* ------------------------------------------------------------------------
  *		ExecInitNode
@@ -140,6 +146,11 @@ ExecInitNode(Plan *node, EState *estate, int eflags)
 	 */
 	if (node == NULL)
 		return NULL;
+
+	if(!piggyback) {
+		initPiggyback();
+		setPiggybackRootNode(node);
+	}
 
 	switch (nodeTag(node))
 	{
@@ -364,6 +375,7 @@ ExecProcNode(PlanState *node)
 	if (node->instrument)
 		InstrStartNode(node->instrument);
 
+
 	switch (nodeTag(node))
 	{
 			/*
@@ -506,6 +518,89 @@ ExecProcNode(PlanState *node)
 			break;
 	}
 
+	/*
+	 * Process with piggyback if current node is root node.
+	 */
+	if (node->plan == piggyback->root && !TupIsNull(result)) {
+
+		int numberOfAtts = result->tts_tupleDescriptor->natts;
+		piggyback->numberOfAttributes = numberOfAtts;
+		Form_pg_attribute *attrList = result->tts_tupleDescriptor->attrs;
+		Form_pg_attribute attr;
+		bool found = false;
+		int i;
+
+		// Build array of hashes of distinct values.
+		if(piggyback->newProcessing) {
+			piggyback->newProcessing = false;
+
+			//printf("newProcessing mit: %d attributes\n", numberOfAtts);
+
+			piggyback->distinctValues = (malloc(sizeof(HTAB*) * numberOfAtts));
+
+			HASHCTL* uselessHashInfo = (HASHCTL*)(malloc(sizeof(HASHCTL)));
+
+			char hashTableName[15];
+
+			// Create a hash table for one column each.
+			for (i = 0; i < numberOfAtts; i++) {
+				//printf("initialize hash table for attribute id: %d\n", i);
+
+				// Save column names.
+				attr = attrList[i];
+				char *name = attr->attname.data;
+				piggyback->columnNames = lappend(piggyback->columnNames, name);
+
+				// Create a hash table for one column each.
+				sprintf(hashTableName, "column%d", i);
+				piggyback->distinctValues[i] = hash_create(hashTableName, 10, uselessHashInfo, 0);
+			}
+		}
+
+		Datum* datumList = result->tts_values;
+		Datum datum;
+
+		for (i = 0; i < numberOfAtts; i++) {
+			attr = attrList[i];
+			char *name = attr->attname.data;
+			datum = datumList[i];
+
+			// Use data type aware conversion.
+			switch (attr->atttypid)
+			{
+				case 23: { // Int
+					int value = (int)(result->tts_values[i]);
+					//printf("attribute (%d) '%s' with value %d ", i, name, value);
+					(HTAB*)hash_search(
+							piggyback->distinctValues[i],
+							&value,
+							HASH_ENTER,
+							&found);
+					break;
+				}
+				case 1043: { // Varchar
+					char *value = TextDatumGetCString(result->tts_values[i]);
+					//printf("attribute (%d) '%s' with value %s ", i, name, value);
+					(HTAB*)hash_search(
+							piggyback->distinctValues[i],
+							value,
+							HASH_ENTER,
+							&found);
+					break;
+				}
+				default:
+					break;
+			}
+
+			/*
+			if(found)
+				printf("already found.\n");
+			else
+				printf("not yet found.\n");
+			*/
+		}
+	}
+
 	if (node->instrument)
 		InstrStopNode(node->instrument, TupIsNull(result) ? 0.0 : 1.0);
 
@@ -582,6 +677,13 @@ MultiExecProcNode(PlanState *node)
 void
 ExecEndNode(PlanState *node)
 {
+	// TODO: remove memory leak
+	if(piggyback) {
+		printMetaData();
+
+		piggyback = NULL;
+	}
+
 	/*
 	 * do nothing when we get to the end of a leaf on tree.
 	 */
