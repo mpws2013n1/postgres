@@ -21,6 +21,7 @@
 #include "libpq-int.h"
 
 #include "mb/pg_wchar.h"
+#include "libpq-piggyback.h"
 
 #ifdef WIN32
 #include "win32.h"
@@ -197,20 +198,28 @@ pqParseInput3(PGconn *conn)
 			int numberOfColumns = 0;
 			int columnid = -1;
 			int n_distinct = -42;
+			PGStatistics *statistics;
 			int i;
 
 			switch (id)
 			{
 				case 'X':
 					pqGetInt(&numberOfColumns, 4, conn);
+					statistics = (PGStatistics*)(malloc(sizeof(PGStatistics)));
+					statistics->columnStatistics = (PGColumnStatistic*)(calloc(numberOfColumns, sizeof(PGColumnStatistic)));
 					for (i = 0; i < numberOfColumns; i++) {
 						pqGets(&conn->workBuffer, conn);
-						printf("Column %s", conn->workBuffer.data);
+						statistics->columnStatistics[i].columnName = malloc(strlen(conn->workBuffer.data)+1);
+						strcpy(statistics->columnStatistics[i].columnName, conn->workBuffer.data);
+						//printf("Column %s", conn->workBuffer.data);
 						pqGetInt(&columnid, 4, conn);
-						printf(" (%d)", columnid);
+						statistics->columnStatistics[i].columnNumber = columnid;
+						//printf(" (%d)", columnid);
 						pqGetInt(&n_distinct, 4, conn);
-						printf(" has %d distinct values.\n", n_distinct);
+						statistics->columnStatistics[i].n_distinct = n_distinct;
+						//printf(" has %d distinct values.\n", n_distinct);
 					}
+					conn->result->statistics = statistics;
 					break;
 				case 'C':		/* command complete */
 					if (pqGets(&conn->workBuffer, conn))
