@@ -2598,6 +2598,7 @@ printQuery(const PGresult *result, const printQueryOpt *opt, FILE *fout, FILE *f
 
 	for (i = 0; i < cont.ncolumns; i++)
 	{
+		char *header;
 		char		align;
 		Oid			ftype = PQftype(result, i);
 
@@ -2620,7 +2621,9 @@ printQuery(const PGresult *result, const printQueryOpt *opt, FILE *fout, FILE *f
 				break;
 		}
 
-		printTableAddHeader(&cont, PQfname(result, i),
+		header = calloc(100,sizeof(char));
+		snprintf(header, 100, "%s (%d distinct values)", PQfname(result, i), i);
+		printTableAddHeader(&cont, strdup(header),
 							opt->translate_header, align);
 	}
 
