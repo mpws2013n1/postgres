@@ -2599,6 +2599,8 @@ printQuery(const PGresult *result, const printQueryOpt *opt, FILE *fout, FILE *f
 	for (i = 0; i < cont.ncolumns; i++)
 	{
 		char *header;
+		PGColumnStatistic *columnStats;
+		int n_distinct = -1;
 		char		align;
 		Oid			ftype = PQftype(result, i);
 
@@ -2621,8 +2623,22 @@ printQuery(const PGresult *result, const printQueryOpt *opt, FILE *fout, FILE *f
 				break;
 		}
 
-		header = calloc(100,sizeof(char));
-		snprintf(header, 100, "%s (%d distinct values)", PQfname(result, i), i);
+		header = calloc(100,sizeof(char));	// Maximum size of a column header is assumed to be 100.
+		columnStats = result->statistics->columnStatistics;
+		if (i == columnStats[i].columnNumber) {
+			// The order of columnStatistics is the same as the order of the columns.
+			n_distinct = columnStats[i].n_distinct;
+		} else {
+			// If not: Linear search for right column statistics
+			int j;
+			for (j = 0; j < cont.ncolumns; j++) {
+				if (i == columnStats[j].columnNumber) {
+					n_distinct = columnStats[j].n_distinct;
+				}
+			}
+		}
+
+		snprintf(header, 100, "%s (%d distinct values)", PQfname(result, i), n_distinct);
 		printTableAddHeader(&cont, strdup(header),
 							opt->translate_header, align);
 	}

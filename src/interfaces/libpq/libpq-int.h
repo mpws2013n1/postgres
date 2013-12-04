@@ -43,8 +43,11 @@
 /* include stuff common to fe and be */
 #include "getaddrinfo.h"
 #include "libpq/pqcomm.h"
+
 /* include stuff found in fe only */
 #include "pqexpbuffer.h"
+
+#include "libpq-piggyback.h"
 
 #ifdef ENABLE_GSS
 #if defined(HAVE_GSSAPI_H)
