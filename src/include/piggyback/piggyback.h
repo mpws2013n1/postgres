@@ -28,6 +28,7 @@ typedef struct _piggyback {
 	int numberOfAttributes;
 	List* columnNames;
 	int *minValue;
+	int *maxValue;
 	int *isNumeric;
 } Piggyback;
 

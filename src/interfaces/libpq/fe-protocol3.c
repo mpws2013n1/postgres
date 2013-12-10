@@ -199,6 +199,7 @@ pqParseInput3(PGconn *conn)
 			int columnid = -1;
 			int n_distinct = -42;
 			int minValue = 0;
+			int maxValue = 0;
 			int isNumeric = 0;
 			PGStatistics *statistics;
 			int i;
@@ -223,6 +224,9 @@ pqParseInput3(PGconn *conn)
 						pqGetInt(&minValue, 4, conn);
 						statistics->columnStatistics[i].minValue = minValue;
 						//printf(" has %d as minimum.\n", minValue);
+						pqGetInt(&maxValue, 4, conn);
+						statistics->columnStatistics[i].maxValue = maxValue;
+						//printf(" has %d as maximum.\n", maxValue);
 						pqGetInt(&isNumeric, 4, conn);
 						statistics->columnStatistics[i].isNumeric = isNumeric;
 						//printf(" numeric : %d.\n", isNumeric);
