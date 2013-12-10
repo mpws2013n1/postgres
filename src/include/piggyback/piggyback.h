@@ -28,6 +28,7 @@ typedef struct _piggyback {
 	int numberOfAttributes;
 	List* columnNames;
 	int *minValue;
+	int *isNumeric;
 } Piggyback;
 
 extern void initPiggyback();

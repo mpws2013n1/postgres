@@ -537,8 +537,8 @@ ExecProcNode(PlanState *node)
 			//printf("newProcessing mit: %d attributes\n", numberOfAtts);
 
 			piggyback->distinctValues = (malloc(sizeof(HTAB*) * numberOfAtts));
-
 			piggyback->minValue = (malloc(sizeof(int) * numberOfAtts));
+			piggyback->isNumeric = (malloc(sizeof(int) * numberOfAtts));
 
 			HASHCTL* uselessHashInfo = (HASHCTL*)(malloc(sizeof(HASHCTL)));
 
@@ -557,6 +557,7 @@ ExecProcNode(PlanState *node)
 				sprintf(hashTableName, "column%d", i);
 				piggyback->distinctValues[i] = hash_create(hashTableName, 10, uselessHashInfo, 0);
 				piggyback->minValue[i] = NULL;
+				piggyback->isNumeric[i] = 0;
 			}
 		}
 
@@ -572,6 +573,7 @@ ExecProcNode(PlanState *node)
 			switch (attr->atttypid)
 			{
 				case 23: { // Int
+					piggyback->isNumeric[i] = 1;
 					int value = (int)(result->tts_values[i]);
 					//printf("attribute (%d) '%s' with value %d ", i, name, value);
 					if (value < piggyback->minValue[i] || piggyback->minValue[i] == NULL) piggyback->minValue[i] = value;
@@ -583,6 +585,7 @@ ExecProcNode(PlanState *node)
 					break;
 				}
 				case 1043: { // Varchar
+					piggyback->isNumeric[i] = 0;
 					char *value = TextDatumGetCString(result->tts_values[i]);
 					//printf("attribute (%d) '%s' with value %s ", i, name, value);
 					(HTAB*)hash_search(

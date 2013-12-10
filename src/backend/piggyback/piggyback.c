@@ -65,11 +65,15 @@ void printDistinctValues() {
 		char * columnName = (char *)list_nth(piggyback->columnNames, i);
 		long distinctValues = hash_get_num_entries(piggyback->distinctValues[i]);
 		int minValue = piggyback->minValue[i];
-		printf("column %s (%d) has %ld distinct values, %d as minimum. \n", columnName, i, distinctValues, minValue);
+		int isNumeric = piggyback->isNumeric[i];
+
+		printf("column %s (%d) has %ld distinct values, %d as minimum, numeric: %d \n", columnName, i, distinctValues, minValue, isNumeric);
+
 		pq_sendstring(&buf, columnName);
 		pq_sendint(&buf, i, 4);
 		pq_sendint(&buf, distinctValues, 4);
 		pq_sendint(&buf, minValue, 4);
+		pq_sendint(&buf, isNumeric, 4);
 	}
 
 	pq_endmessage(&buf);
