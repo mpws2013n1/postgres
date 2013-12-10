@@ -27,6 +27,7 @@ typedef struct _piggyback {
 	bool newProcessing;
 	int numberOfAttributes;
 	List* columnNames;
+	int *minValue;
 } Piggyback;
 
 extern void initPiggyback();

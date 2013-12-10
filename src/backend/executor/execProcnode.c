@@ -538,6 +538,8 @@ ExecProcNode(PlanState *node)
 
 			piggyback->distinctValues = (malloc(sizeof(HTAB*) * numberOfAtts));
 
+			piggyback->minValue = (malloc(sizeof(int) * numberOfAtts));
+
 			HASHCTL* uselessHashInfo = (HASHCTL*)(malloc(sizeof(HASHCTL)));
 
 			char hashTableName[15];
@@ -554,6 +556,7 @@ ExecProcNode(PlanState *node)
 				// Create a hash table for one column each.
 				sprintf(hashTableName, "column%d", i);
 				piggyback->distinctValues[i] = hash_create(hashTableName, 10, uselessHashInfo, 0);
+				piggyback->minValue[i] = NULL;
 			}
 		}
 
@@ -571,6 +574,7 @@ ExecProcNode(PlanState *node)
 				case 23: { // Int
 					int value = (int)(result->tts_values[i]);
 					//printf("attribute (%d) '%s' with value %d ", i, name, value);
+					if (value < piggyback->minValue[i] || piggyback->minValue[i] == NULL) piggyback->minValue[i] = value;
 					(HTAB*)hash_search(
 							piggyback->distinctValues[i],
 							&value,

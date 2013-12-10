@@ -64,10 +64,12 @@ void printDistinctValues() {
 	for (i = 0; i < piggyback->numberOfAttributes; i++) {
 		char * columnName = (char *)list_nth(piggyback->columnNames, i);
 		long distinctValues = hash_get_num_entries(piggyback->distinctValues[i]);
-		printf("column %s (%d) has %ld distinct values.\n", columnName, i, distinctValues);
+		int minValue = piggyback->minValue[i];
+		printf("column %s (%d) has %ld distinct values, %d as minimum. \n", columnName, i, distinctValues, minValue);
 		pq_sendstring(&buf, columnName);
 		pq_sendint(&buf, i, 4);
 		pq_sendint(&buf, distinctValues, 4);
+		pq_sendint(&buf, minValue, 4);
 	}
 
 	pq_endmessage(&buf);

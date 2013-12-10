@@ -2601,6 +2601,7 @@ printQuery(const PGresult *result, const printQueryOpt *opt, FILE *fout, FILE *f
 		char *header;
 		PGColumnStatistic *columnStats;
 		int n_distinct = -1;
+		int minValue;
 		char		align;
 		Oid			ftype = PQftype(result, i);
 
@@ -2628,17 +2629,19 @@ printQuery(const PGresult *result, const printQueryOpt *opt, FILE *fout, FILE *f
 		if (i == columnStats[i].columnNumber) {
 			// The order of columnStatistics is the same as the order of the columns.
 			n_distinct = columnStats[i].n_distinct;
+			minValue = columnStats[i].minValue;
 		} else {
 			// If not: Linear search for right column statistics
 			int j;
 			for (j = 0; j < cont.ncolumns; j++) {
 				if (i == columnStats[j].columnNumber) {
 					n_distinct = columnStats[j].n_distinct;
+					minValue = columnStats[j].minValue;
 				}
 			}
 		}
 
-		snprintf(header, 100, "%s (%d distinct values)", PQfname(result, i), n_distinct);
+		snprintf(header, 100, "%s (%d distinct values, %d min)", PQfname(result, i), n_distinct, minValue);
 		printTableAddHeader(&cont, strdup(header),
 							opt->translate_header, align);
 	}

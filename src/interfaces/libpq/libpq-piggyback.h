@@ -16,6 +16,7 @@ typedef struct PGColumnStatistic {
 	char *columnName;
 	int columnNumber;
 	int n_distinct;
+	int minValue;
 } PGColumnStatistic;
 
 typedef struct PGStatistics {
