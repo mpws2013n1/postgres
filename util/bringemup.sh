@@ -1,3 +1,3 @@
 #!/bin/sh
   
- xterm -e "psql ds2"
+ xterm -e "psql tpch"
