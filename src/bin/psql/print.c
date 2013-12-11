@@ -2641,8 +2641,8 @@ printQuery(const PGresult *result, const printQueryOpt *opt, FILE *fout, FILE *f
 				if (i == columnStats[j].columnNumber) {
 					n_distinct = columnStats[j].n_distinct;
 					minValue = columnStats[j].minValue;
-					maxValue = columnStats[i].maxValue;
-					isNumeric = columnStats[i].isNumeric;
+					maxValue = columnStats[j].maxValue;
+					isNumeric = columnStats[j].isNumeric;
 				}
 			}
 		}
