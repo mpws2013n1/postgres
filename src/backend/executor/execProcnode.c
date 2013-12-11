@@ -523,6 +523,11 @@ ExecProcNode(PlanState *node) {
 
 			piggyback->distinctValues = (malloc(
 					sizeof(hashset_t*) * numberOfAtts));
+			piggyback->minValue = (malloc(sizeof(int) * numberOfAtts));
+			piggyback->maxValue = (malloc(sizeof(int) * numberOfAtts));
+			piggyback->isNumeric = (malloc(sizeof(int) * numberOfAtts));
+
+			char hashTableName[15];
 
 			// Create a hash table for one column each.
 			for (i = 0; i < numberOfAtts; i++) {
@@ -535,6 +540,10 @@ ExecProcNode(PlanState *node) {
 
 				// Create a hash table for one column each.
 				piggyback->distinctValues[i] = hashset_create();
+				sprintf(hashTableName, "column%d", i);
+				piggyback->minValue[i] = NULL;
+				piggyback->maxValue[i] = NULL;
+				piggyback->isNumeric[i] = 0;
 			}
 		}
 
@@ -549,17 +558,21 @@ ExecProcNode(PlanState *node) {
 			// Use data type aware conversion.
 			switch (attr->atttypid) {
 			case 23: { // Int
+				piggyback->isNumeric[i] = 1;
 				int value = (int) (result->tts_values[i]);
-				//printf("attribute (%d) '%s' with value %d ", i, name, value);
+				if (value
+						< piggyback->minValue[i]|| piggyback->minValue[i] == NULL)
+					piggyback->minValue[i] = value;
+				if (value
+						> piggyback->maxValue[i]|| piggyback->maxValue[i] == NULL)
+					piggyback->maxValue[i] = value;
 
-				//handle hashset specifif values
-				printf("%d %d\n", value,
-						hashset_add(piggyback->distinctValues[i], value));
+				hashset_add(piggyback->distinctValues[i], value);
 				break;
 			}
 			case 1043: { // Varchar
 				char *value = TextDatumGetCString(result->tts_values[i]);
-				//printf("attribute (%d) '%s' with value %s ", i, name, value);
+				piggyback->isNumeric[i] = 0;
 				hashset_add(piggyback->distinctValues[i], value);
 				break;
 			}

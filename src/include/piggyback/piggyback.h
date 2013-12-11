@@ -69,6 +69,9 @@ typedef struct _piggyback {
 	bool newProcessing;
 	int numberOfAttributes;
 	List* columnNames;
+	int *minValue;
+	int *maxValue;
+	int *isNumeric;
 } Piggyback;
 
 extern void initPiggyback();
