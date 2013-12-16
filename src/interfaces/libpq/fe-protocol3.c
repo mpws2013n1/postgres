@@ -21,6 +21,7 @@
 #include "libpq-int.h"
 
 #include "mb/pg_wchar.h"
+#include "libpq-piggyback.h"
 
 #ifdef WIN32
 #include "win32.h"
@@ -194,8 +195,44 @@ pqParseInput3(PGconn *conn)
 			/*
 			 * In BUSY state, we can process everything.
 			 */
+			int numberOfColumns = 0;
+			int columnid = -1;
+			int n_distinct = -42;
+			int minValue = 0;
+			int maxValue = 0;
+			int isNumeric = 0;
+			PGStatistics *statistics;
+			int i;
+
 			switch (id)
 			{
+				case 'X':
+					pqGetInt(&numberOfColumns, 4, conn);
+					statistics = (PGStatistics*)(malloc(sizeof(PGStatistics)));
+					statistics->columnStatistics = (PGColumnStatistic*)(calloc(numberOfColumns, sizeof(PGColumnStatistic)));
+					for (i = 0; i < numberOfColumns; i++) {
+						pqGets(&conn->workBuffer, conn);
+						statistics->columnStatistics[i].columnName = malloc(strlen(conn->workBuffer.data)+1);
+						strcpy(statistics->columnStatistics[i].columnName, conn->workBuffer.data);
+						//printf("Column %s", conn->workBuffer.data);
+						pqGetInt(&columnid, 4, conn);
+						statistics->columnStatistics[i].columnNumber = columnid;
+						//printf(" (%d)", columnid);
+						pqGetInt(&n_distinct, 4, conn);
+						statistics->columnStatistics[i].n_distinct = n_distinct;
+						//printf(" has %d distinct values.\n", n_distinct);
+						pqGetInt(&minValue, 4, conn);
+						statistics->columnStatistics[i].minValue = minValue;
+						//printf(" has %d as minimum.\n", minValue);
+						pqGetInt(&maxValue, 4, conn);
+						statistics->columnStatistics[i].maxValue = maxValue;
+						//printf(" has %d as maximum.\n", maxValue);
+						pqGetInt(&isNumeric, 4, conn);
+						statistics->columnStatistics[i].isNumeric = isNumeric;
+						//printf(" numeric : %d.\n", isNumeric);
+					}
+					conn->result->statistics = statistics;
+					break;
 				case 'C':		/* command complete */
 					if (pqGets(&conn->workBuffer, conn))
 						return;

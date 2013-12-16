@@ -23,6 +23,7 @@
 /* We assume libpq-fe.h has already been included. */
 #include "postgres_fe.h"
 #include "libpq-events.h"
+#include "libpq-piggyback.h"
 
 #include <time.h>
 #include <sys/types.h>
@@ -42,8 +43,11 @@
 /* include stuff common to fe and be */
 #include "getaddrinfo.h"
 #include "libpq/pqcomm.h"
+
 /* include stuff found in fe only */
 #include "pqexpbuffer.h"
+
+#include "libpq-piggyback.h"
 
 #ifdef ENABLE_GSS
 #if defined(HAVE_GSSAPI_H)
@@ -209,6 +213,11 @@ struct pg_result
 	PGresult_data *curBlock;	/* most recently allocated block */
 	int			curOffset;		/* start offset of free space in block */
 	int			spaceLeft;		/* number of free bytes remaining in block */
+
+	/*
+	 * The following struct contains statistics about the result.
+	 */
+	PGStatistics *statistics;
 };
 
 /* PGAsyncStatusType defines the state of the query-execution state machine */

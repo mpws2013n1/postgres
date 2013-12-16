@@ -9,6 +9,7 @@
 #define PRINT_H
 
 #include "libpq-fe.h"
+#include "libpq-int.h"
 
 
 enum printFormat

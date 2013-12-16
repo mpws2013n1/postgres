@@ -995,6 +995,7 @@ exec_simple_query(const char *query_string)
 																BoolGetDatum(false));
 				if (statsTuple) {
 					Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
+
 					printf("stadistinct of attribute %s (number: %d) from relation %s (Oid: %d): %f\n", attName, attNumber, "relName", relOid, statStruct->stadistinct);
 					ReleaseSysCache(statsTuple);
 				}
