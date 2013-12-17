@@ -48,12 +48,16 @@ void printMetaData() {
 }
 
 void printDistinctValues() {
-	if (!piggyback)
-		return;
-	int i;
-
 	StringInfoData buf;
 	pq_beginmessage(&buf, 'X');
+
+	if (!piggyback || !piggyback->columnNames || !piggyback->distinctValues) {
+		pq_sendint(&buf, 0, 4);
+		pq_endmessage(&buf);
+		return;
+	}
+
+	int i;
 	pq_sendint(&buf, piggyback->numberOfAttributes, 4);
 
 	for (i = 0; i < piggyback->numberOfAttributes; i++) {

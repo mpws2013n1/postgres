@@ -506,7 +506,7 @@ ExecProcNode(PlanState *node) {
 	/*
 	 * Process with piggyback if current node is root node.
 	 */
-	if (node->plan == piggyback->root && !TupIsNull(result)) {
+	if (node->plan == piggyback->root && result && result->tts_tupleDescriptor) {
 
 		int numberOfAtts = result->tts_tupleDescriptor->natts;
 		piggyback->numberOfAttributes = numberOfAtts;
@@ -547,45 +547,47 @@ ExecProcNode(PlanState *node) {
 			}
 		}
 
-		Datum* datumList = result->tts_values;
-		Datum datum;
+		if (!result->tts_isempty) {
+			Datum* datumList = result->tts_values;
+			Datum datum;
 
-		for (i = 0; i < numberOfAtts; i++) {
-			attr = attrList[i];
-			char *name = attr->attname.data;
-			datum = datumList[i];
+			for (i = 0; i < numberOfAtts; i++) {
+				attr = attrList[i];
+				char *name = attr->attname.data;
+				datum = datumList[i];
 
-			// Use data type aware conversion.
-			switch (attr->atttypid) {
-			case 23: { // Int
-				piggyback->isNumeric[i] = 1;
-				int value = (int) (result->tts_values[i]);
-				if (value
-						< piggyback->minValue[i]|| piggyback->minValue[i] == NULL)
-					piggyback->minValue[i] = value;
-				if (value
-						> piggyback->maxValue[i]|| piggyback->maxValue[i] == NULL)
-					piggyback->maxValue[i] = value;
+				// Use data type aware conversion.
+				switch (attr->atttypid) {
+				case 23: { // Int
+					piggyback->isNumeric[i] = 1;
+					int value = (int) (result->tts_values[i]);
+					if (value
+							< piggyback->minValue[i]|| piggyback->minValue[i] == NULL)
+						piggyback->minValue[i] = value;
+					if (value
+							> piggyback->maxValue[i]|| piggyback->maxValue[i] == NULL)
+						piggyback->maxValue[i] = value;
 
-				hashset_add(piggyback->distinctValues[i], value);
-				break;
+					hashset_add(piggyback->distinctValues[i], value);
+					break;
+				}
+				case 1043: { // Varchar
+					char *value = TextDatumGetCString(result->tts_values[i]);
+					piggyback->isNumeric[i] = 0;
+					hashset_add(piggyback->distinctValues[i], value);
+					break;
+				}
+				default:
+					break;
+				}
+
+				/*
+				 if(found)
+				 printf("already found.\n");
+				 else
+				 printf("not yet found.\n");
+				 */
 			}
-			case 1043: { // Varchar
-				char *value = TextDatumGetCString(result->tts_values[i]);
-				piggyback->isNumeric[i] = 0;
-				hashset_add(piggyback->distinctValues[i], value);
-				break;
-			}
-			default:
-				break;
-			}
-
-			/*
-			 if(found)
-			 printf("already found.\n");
-			 else
-			 printf("not yet found.\n");
-			 */
 		}
 	}
 
