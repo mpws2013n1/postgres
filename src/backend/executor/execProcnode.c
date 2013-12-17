@@ -572,6 +572,7 @@ ExecProcNode(PlanState *node) {
 					hashset_add(piggyback->distinctValues[i], value);
 					break;
 				}
+				case 1042:
 				case 1043: { // Varchar
 					if (0 != result->tts_values[i]) {
 						char *value = TextDatumGetCString(result->tts_values[i]);
