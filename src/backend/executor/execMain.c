@@ -61,6 +61,12 @@
 #include "utils/snapmgr.h"
 #include "utils/syscache.h"
 #include "utils/tqual.h"
+#include "postgres.h"
+
+#include "piggyback/piggyback.h"
+#include <limits.h>
+
+extern Piggyback *piggyback;
 
 //#include "include/executor/execProcnode.h"
 
@@ -460,7 +466,9 @@ standard_ExecutorEnd(QueryDesc *queryDesc)
 	 * Switch into per-query memory context to run ExecEndPlan
 	 */
 	oldcontext = MemoryContextSwitchTo(estate->es_query_cxt);
-
+	//piggyback
+	piggyback->numberOfTuples = estate->es_processed;
+	//done
 	ExecEndPlan(queryDesc->planstate, estate);
 
 	/* do away with our snapshots */
@@ -912,6 +920,68 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 	 */
 
 	planstate = ExecInitNode(plan, estate, eflags);
+
+	//initialize piggyback object
+	initPiggyback();
+	piggyback->numberOfAttributes = planstate->plan->targetlist->length;
+
+	// Build array of hashes of distinct values.
+	if (piggyback->newProcessing) {
+		piggyback->newProcessing = false;
+
+		//printf("newProcessing mit: %d attributes\n", numberOfAtts);
+
+		piggyback->distinctValues = calloc(piggyback->numberOfAttributes, sizeof(hashset_t*));
+		piggyback->distinctCounts = calloc(piggyback->numberOfAttributes, sizeof(long));
+		piggyback->minValue = calloc(piggyback->numberOfAttributes, sizeof(int));
+		piggyback->maxValue = calloc(piggyback->numberOfAttributes, sizeof(int));
+		piggyback->isNumeric = calloc(piggyback->numberOfAttributes, sizeof(int));
+
+		int useDistinctStatsFromBaseStats = !nodeHasFilter(planstate);
+
+		// Create a hash table for one column each.
+		ListCell *tlist;
+		int i = 0;
+		foreach(tlist, planstate->plan->targetlist)
+		{
+			TargetEntry *tle = (TargetEntry *) lfirst(tlist);
+			char *name = tle->resname;
+			// Save column names.
+			piggyback->columnNames = lappend(piggyback->columnNames, name);
+
+			// Create a hash table for one column each.
+			piggyback->distinctValues[i] = hashset_create();
+			//initialize distinct count with -2 to signal that nothing was gathered from basestats
+			piggyback->distinctCounts[i] = -2;
+			piggyback->minValue[i] = INT_MAX;
+			piggyback->maxValue[i] = NULL;
+			piggyback->isNumeric[i] = NULL;
+
+			if (useDistinctStatsFromBaseStats == 1) {
+				unsigned int relOid = tle->resorigtbl;
+				int attnum = get_attnum(relOid, name);
+				HeapTuple statsTuple = SearchSysCache3(STATRELATTINH,
+						ObjectIdGetDatum(relOid), Int16GetDatum(attnum),
+						BoolGetDatum(false));
+				if (statsTuple) {
+					Form_pg_statistic statStruct =
+							(Form_pg_statistic) GETSTRUCT(statsTuple);
+
+					piggyback->distinctCounts[i] =
+							statStruct->stadistinct;
+					ReleaseSysCache(statsTuple);
+				}
+			}
+			i++;
+		}
+	}
+
+	if (piggyback->root == NULL) {
+		setPiggybackRootNode(plan);
+	}
+	//done
+
+
 
 	/*
 	 * Get the tuple descriptor describing the type of tuples to return.
@@ -1487,20 +1557,6 @@ ExecutePlan(EState *estate,
 	 */
 	estate->es_direction = direction;
 
-//	unsigned int namespaceId = get_namespace_oid("public", true);
-//	unsigned int relId = get_relname_relid("orders", namespaceId);
-//	unsigned int attNumber = get_attnum(relId, "totalamount");
-//	char *attName = get_attname(relId, attNumber);
-//	char *relName = get_rel_name(relId);
-//	HeapTuple statsTuple = SearchSysCache3(STATRELATTINH, ObjectIdGetDatum(relId),
-//													Int16GetDatum(attNumber),
-//													BoolGetDatum(false));
-//	if (statsTuple) {
-//		Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
-//		printf("stadistinct of attribute %s (number: %d) from relation %s (Oid: %d): %f\n", attName, attNumber, relName, relId, statStruct->stadistinct);
-//		ReleaseSysCache(statsTuple);
-//	}
-
 	/*
 	 * Loop until we've processed the proper number of tuples from the plan.
 	 */
@@ -1556,6 +1612,25 @@ ExecutePlan(EState *estate,
 		current_tuple_count++;
 		if (numberTuples && numberTuples == current_tuple_count)
 			break;
+	}
+}
+
+//piggyback helper method
+int nodeHasFilter(PlanState* node) {
+	Expr* node2 = node->qual;
+	if (node2 == NULL)
+		return 0;
+	if (nodeTag(node2) == T_List) {
+		List* list;
+		Expr* node3;
+		list = (List *) node2;
+		node3 = (Expr *) linitial(node2);
+		if (node3 == NULL)
+			return 0;
+		if (nodeTag(node3) == T_OpExpr) {
+			return 1;
+		}
+		return 0;
 	}
 }
 

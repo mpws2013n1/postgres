@@ -115,8 +115,12 @@
 
 #include "utils/hsearch.h"
 #include "utils/builtins.h"
+#include "utils/syscache.h"
 #include "nodes/pg_list.h"
+#include "catalog/pg_statistic.h"
+#include "access/htup_details.h"
 #include "piggyback/piggyback.h"
+#include <limits.h>
 
 extern Piggyback *piggyback;
 
@@ -145,11 +149,6 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 	 */
 	if (node == NULL)
 		return NULL;
-
-	if (!piggyback) {
-		initPiggyback();
-		setPiggybackRootNode(node);
-	}
 
 	switch (nodeTag(node)) {
 	/*
@@ -512,44 +511,46 @@ ExecProcNode(PlanState *node) {
 		piggyback->numberOfAttributes = numberOfAtts;
 		Form_pg_attribute *attrList = result->tts_tupleDescriptor->attrs;
 		Form_pg_attribute attr;
-		bool found = false;
-		int i;
-
-		// Build array of hashes of distinct values.
-		if (piggyback->newProcessing) {
-			piggyback->newProcessing = false;
-
-			//printf("newProcessing mit: %d attributes\n", numberOfAtts);
-
-			piggyback->distinctValues = (malloc(
-					sizeof(hashset_t*) * numberOfAtts));
-			piggyback->minValue = (malloc(sizeof(int) * numberOfAtts));
-			piggyback->maxValue = (malloc(sizeof(int) * numberOfAtts));
-			piggyback->isNumeric = (malloc(sizeof(int) * numberOfAtts));
-
-			char hashTableName[15];
-
-			// Create a hash table for one column each.
-			for (i = 0; i < numberOfAtts; i++) {
-				//printf("initialize hash table for attribute id: %d\n", i);
-
-				// Save column names.
-				attr = attrList[i];
-				char *name = attr->attname.data;
-				piggyback->columnNames = lappend(piggyback->columnNames, name);
-
-				// Create a hash table for one column each.
-				piggyback->distinctValues[i] = hashset_create();
-				sprintf(hashTableName, "column%d", i);
-				piggyback->minValue[i] = NULL;
-				piggyback->maxValue[i] = NULL;
-				piggyback->isNumeric[i] = 0;
-			}
-		}
+//		int i;
+//
+//		// Build array of hashes of distinct values.
+//		if (piggyback->newProcessing) {
+//			piggyback->newProcessing = false;
+//
+//			//printf("newProcessing mit: %d attributes\n", numberOfAtts);
+//
+//			piggyback->distinctValues = (malloc(
+//					sizeof(hashset_t*) * numberOfAtts));
+//			piggyback->distinctCounts = (malloc(sizeof(int) * numberOfAtts));
+//			piggyback->minValue = (malloc(sizeof(int) * numberOfAtts));
+//			piggyback->maxValue = (malloc(sizeof(int) * numberOfAtts));
+//			piggyback->isNumeric = (malloc(sizeof(int) * numberOfAtts));
+//
+//			char hashTableName[15];
+//
+//			// Create a hash table for one column each.
+//			for (i = 0; i < numberOfAtts; i++) {
+//				//printf("initialize hash table for attribute id: %d\n", i);
+//
+//				// Save column names.
+//				attr = attrList[i];
+//				char *name = attr->attname.data;
+//				piggyback->columnNames = lappend(piggyback->columnNames, name);
+//
+//				// Create a hash table for one column each.
+//				piggyback->distinctValues[i] = hashset_create();
+//				sprintf(hashTableName, "column%d", i);
+//				piggyback->distinctCounts[i] = NULL;
+//				piggyback->minValue[i] = NULL;
+//				piggyback->maxValue[i] = NULL;
+//				piggyback->isNumeric[i] = 0;
+//			}
+//		}
 
 		Datum* datumList = result->tts_values;
 		Datum datum;
 
+		int i=0;
 		for (i = 0; i < numberOfAtts; i++) {
 			attr = attrList[i];
 			char *name = attr->attname.data;
@@ -561,31 +562,29 @@ ExecProcNode(PlanState *node) {
 				piggyback->isNumeric[i] = 1;
 				int value = (int) (result->tts_values[i]);
 				if (value
-						< piggyback->minValue[i]|| piggyback->minValue[i] == NULL)
+						< piggyback->minValue[i]|| piggyback->minValue[i] == INT_MAX)
 					piggyback->minValue[i] = value;
 				if (value
 						> piggyback->maxValue[i]|| piggyback->maxValue[i] == NULL)
 					piggyback->maxValue[i] = value;
+				if(piggyback->distinctCounts[i]==-2){
+					hashset_add(piggyback->distinctValues[i], value);
+				}
 
-				hashset_add(piggyback->distinctValues[i], value);
 				break;
 			}
 			case 1043: { // Varchar
 				char *value = TextDatumGetCString(result->tts_values[i]);
 				piggyback->isNumeric[i] = 0;
-				hashset_add(piggyback->distinctValues[i], value);
+				if(piggyback->distinctCounts[i]==-2){
+					hashset_add(piggyback->distinctValues[i], value);
+				}
+
 				break;
 			}
 			default:
 				break;
 			}
-
-			/*
-			 if(found)
-			 printf("already found.\n");
-			 else
-			 printf("not yet found.\n");
-			 */
 		}
 	}
 

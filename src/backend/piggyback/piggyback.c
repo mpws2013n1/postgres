@@ -27,6 +27,10 @@ Piggyback *piggyback = NULL;
  */
 void initPiggyback() {
 	piggyback = (Piggyback*) (malloc(sizeof(Piggyback)));
+	piggyback->newProcessing = true;
+	piggyback->columnNames = NIL;
+	piggyback->numberOfAttributes = 0;
+	piggyback->root = NULL;
 }
 
 /*
@@ -35,48 +39,43 @@ void initPiggyback() {
 void setPiggybackRootNode(Plan *rootNode) {
 	// Save root node for later processing.
 	piggyback->root = rootNode;
-
-	// Flag to recognize first processing of root node.
-	piggyback->newProcessing = true;
-
-	//init attribute list
-	piggyback->columnNames = NIL;
 }
 
 void printMetaData() {
-	printDistinctValues();
-}
-
-void printDistinctValues() {
 	if (!piggyback)
-		return;
-	int i;
+			return;
+		int i;
 
-	StringInfoData buf;
-	pq_beginmessage(&buf, 'X');
-	pq_sendint(&buf, piggyback->numberOfAttributes, 4);
+		StringInfoData buf;
+		pq_beginmessage(&buf, 'X');
+		pq_sendint(&buf, piggyback->numberOfAttributes, 4);
 
-	for (i = 0; i < piggyback->numberOfAttributes; i++) {
-		char * columnName = (char *) list_nth(piggyback->columnNames, i);
-		long distinctValues = (long) hashset_num_items(
-				piggyback->distinctValues[i]);
-		int minValue = piggyback->minValue[i];
-		int maxValue = piggyback->maxValue[i];
-		int isNumeric = piggyback->isNumeric[i];
+		for (i = 0; i < piggyback->numberOfAttributes; i++) {
+			char * columnName = (char *) list_nth(piggyback->columnNames, i);
+			long distinctValuesCount = piggyback->distinctCounts[i];
+			if(distinctValuesCount==-2){
+				distinctValuesCount = (long) hashset_num_items(
+					piggyback->distinctValues[i]);
+			}else if(distinctValuesCount==-1){
+				distinctValuesCount = piggyback->numberOfTuples;
+			}
+			int minValue = piggyback->minValue[i];
+			int maxValue = piggyback->maxValue[i];
+			int isNumeric = piggyback->isNumeric[i];
 
-		printf(
-				"column %s (%d) has %ld distinct values, %d as minimum, %d as maximum, numeric: %d \n",
-				columnName, i, distinctValues, minValue, maxValue, isNumeric);
+			printf(
+					"column %s (%d) has %ld distinct values, %d as minimum, %d as maximum, numeric: %d \n",
+					columnName, i, distinctValuesCount, minValue, maxValue, isNumeric);
 
-		pq_sendstring(&buf, columnName);
-		pq_sendint(&buf, i, 4);
-		pq_sendint(&buf, distinctValues, 4);
-		pq_sendint(&buf, minValue, 4);
-		pq_sendint(&buf, maxValue, 4);
-		pq_sendint(&buf, isNumeric, 4);
-	}
+			pq_sendstring(&buf, columnName);
+			pq_sendint(&buf, i, 4);
+			pq_sendint(&buf, distinctValuesCount, 4);
+			pq_sendint(&buf, minValue, 4);
+			pq_sendint(&buf, maxValue, 4);
+			pq_sendint(&buf, isNumeric, 4);
+		}
 
-	pq_endmessage(&buf);
+		pq_endmessage(&buf);
 }
 
 //begin stolen hashset - https://github.com/avsej/hashset.c

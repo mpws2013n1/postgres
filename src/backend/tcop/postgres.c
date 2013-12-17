@@ -978,30 +978,31 @@ exec_simple_query(const char *query_string)
 
 		querytree_list = pg_analyze_and_rewrite(parsetree, query_string,
 												NULL, 0);
-		ListCell *queryCell, *targetCell;
-		foreach(queryCell, querytree_list) {
-			Query	   *query = (Query *) lfirst(queryCell);
-			List *targetEntries = query->targetList;
-			foreach(targetCell, targetEntries) {
-				TargetEntry *tle = (TargetEntry *) lfirst(targetCell);
-				unsigned int attNumber = tle->resorigcol;
-				unsigned int relOid = tle->resorigtbl;
-				char *attName = tle->resname;
-				//Relation rel = RelationIdGetRelation(relOid);
-				//char *relName = rel->rd_rel->relname.data;
-
-				HeapTuple statsTuple = SearchSysCache3(STATRELATTINH, ObjectIdGetDatum(relOid),
-																Int16GetDatum(attNumber),
-																BoolGetDatum(false));
-				if (statsTuple) {
-					Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
-
-					printf("stadistinct of attribute %s (number: %d) from relation %s (Oid: %d): %f\n", attName, attNumber, "relName", relOid, statStruct->stadistinct);
-					ReleaseSysCache(statsTuple);
-				}
-				//RelationClose(rel);
-			}
-		}
+		//piggyback: not needed here anymore
+//		ListCell *queryCell, *targetCell;
+//		foreach(queryCell, querytree_list) {
+//			Query	   *query = (Query *) lfirst(queryCell);
+//			List *targetEntries = query->targetList;
+//			foreach(targetCell, targetEntries) {
+//				TargetEntry *tle = (TargetEntry *) lfirst(targetCell);
+//				unsigned int attNumber = tle->resorigcol;
+//				unsigned int relOid = tle->resorigtbl;
+//				char *attName = tle->resname;
+//				//Relation rel = RelationIdGetRelation(relOid);
+//				//char *relName = rel->rd_rel->relname.data;
+//
+//				HeapTuple statsTuple = SearchSysCache3(STATRELATTINH, ObjectIdGetDatum(relOid),
+//																Int16GetDatum(attNumber),
+//																BoolGetDatum(false));
+//				if (statsTuple) {
+//					Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
+//
+//					printf("stadistinct of attribute %s (number: %d) from relation %s (Oid: %d): %f\n", attName, attNumber, "relName", relOid, statStruct->stadistinct);
+//					ReleaseSysCache(statsTuple);
+//				}
+//				//RelationClose(rel);
+//			}
+//		}
 
 		plantree_list = pg_plan_queries(querytree_list, 0, NULL);
 
