@@ -557,6 +557,8 @@ ExecProcNode(PlanState *node) {
 
 				// Use data type aware conversion.
 				switch (attr->atttypid) {
+				case 20:
+				case 21:
 				case 23: { // Int
 					piggyback->isNumeric[i] = 1;
 					int value = (int) (result->tts_values[i]);
