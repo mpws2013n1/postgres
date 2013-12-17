@@ -66,12 +66,14 @@ extern void printIt();
 typedef struct _piggyback {
 	Plan *root;
 	hashset_t **distinctValues;
+	long* distinctCounts;
 	bool newProcessing;
 	int numberOfAttributes;
 	List* columnNames;
 	int *minValue;
 	int *maxValue;
 	int *isNumeric;
+	int numberOfTuples;
 } Piggyback;
 
 extern void initPiggyback();
