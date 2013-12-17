@@ -517,7 +517,6 @@ ExecProcNode(PlanState *node) {
 
 		// Build array of hashes of distinct values.
 		if (piggyback->newProcessing) {
-			piggyback->newProcessing = false;
 
 			//printf("newProcessing mit: %d attributes\n", numberOfAtts);
 
@@ -572,9 +571,14 @@ ExecProcNode(PlanState *node) {
 					break;
 				}
 				case 1043: { // Varchar
-					char *value = TextDatumGetCString(result->tts_values[i]);
-					piggyback->isNumeric[i] = 0;
-					hashset_add(piggyback->distinctValues[i], value);
+					if (0 != result->tts_values[i]) {
+						char *value = TextDatumGetCString(result->tts_values[i]);
+						piggyback->isNumeric[i] = 0;
+						hashset_add(piggyback->distinctValues[i], value);
+					} else {
+						piggyback->isNumeric[i] = 0;
+						hashset_add(piggyback->distinctValues[i], "(null)");
+					}
 					break;
 				}
 				default:
@@ -589,6 +593,8 @@ ExecProcNode(PlanState *node) {
 				 */
 			}
 		}
+
+		piggyback->newProcessing = false;
 	}
 
 	if (node->instrument)
