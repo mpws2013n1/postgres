@@ -66,7 +66,7 @@ extern void printIt();
 typedef struct _piggyback {
 	Plan *root;
 	hashset_t **distinctValues;
-	long* distinctCounts;
+	float4* distinctCounts;
 	bool newProcessing;
 	int numberOfAttributes;
 	List* columnNames;
