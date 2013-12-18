@@ -174,6 +174,13 @@ ExecScan(ScanState *node,
 		 */
 		if (TupIsNull(slot))
 		{
+			if (qual) {
+				int opno = ((OpExpr*) ((ExprState*) linitial(qual))->expr)->opno;
+				if(opno == 94 || opno == 96 || opno == 410) {
+					printf("Column %d has ", ((Var*) ((OpExpr*) ((ExprState*) linitial(qual))->expr)->args->head->data.ptr_value)->varattno);
+					printf("Min, Max, Avg: %d\n", ((Const*) ((OpExpr*) ((ExprState*) linitial(qual))->expr)->args->tail->data.ptr_value)->constvalue);
+				}
+			}
 			if (projInfo)
 				return ExecClearTuple(projInfo->pi_slot);
 			else
