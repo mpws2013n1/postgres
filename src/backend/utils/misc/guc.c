@@ -127,6 +127,8 @@ extern char *temp_tablespaces;
 extern bool ignore_checksum_failure;
 extern bool synchronize_seqscans;
 extern char *SSLCipherSuites;
+extern char *SSLECDHCurve;
+extern bool SSLPreferServerCiphers;
 
 #ifdef TRACE_SORT
 extern bool trace_sort;
@@ -799,6 +801,15 @@ static struct config_bool ConfigureNamesBool[] =
 		&EnableSSL,
 		false,
 		check_ssl, NULL, NULL
+	},
+	{
+		{"ssl_prefer_server_ciphers", PGC_POSTMASTER, CONN_AUTH_SECURITY,
+			gettext_noop("Give priority to server ciphersuite order."),
+			NULL
+		},
+		&SSLPreferServerCiphers,
+		true,
+		NULL, NULL, NULL
 	},
 	{
 		{"fsync", PGC_SIGHUP, WAL_SETTINGS,
@@ -3141,6 +3152,21 @@ static struct config_string ConfigureNamesString[] =
 	},
 
 	{
+		{"ssl_ecdh_curve", PGC_POSTMASTER, CONN_AUTH_SECURITY,
+			gettext_noop("Sets the curve to use for ECDH."),
+			NULL,
+			GUC_SUPERUSER_ONLY
+		},
+		&SSLECDHCurve,
+#ifdef USE_SSL
+		"prime256v1",
+#else
+		"none",
+#endif
+		NULL, NULL, NULL
+	},
+
+	{
 		{"application_name", PGC_USERSET, LOGGING_WHAT,
 			gettext_noop("Sets the application name to be reported in statistics and logs."),
 			NULL,
@@ -4250,7 +4276,7 @@ SelectConfigFiles(const char *userDoption, const char *progname)
 	pg_timezone_abbrev_initialize();
 
 	set_default_effective_cache_size();
-	    
+
 	/*
 	 * Figure out where pg_hba.conf is, and make sure the path is absolute.
 	 */
@@ -6187,7 +6213,7 @@ flatten_set_variable_args(const char *name, List *args)
 		A_Const    *con;
 
 		if (l != list_head(args))
-			appendStringInfo(&buf, ", ");
+			appendStringInfoString(&buf, ", ");
 
 		if (IsA(arg, TypeCast))
 		{
@@ -6274,7 +6300,7 @@ ExecSetVariableStmt(VariableSetStmt *stmt, bool isTopLevel)
 		case VAR_SET_VALUE:
 		case VAR_SET_CURRENT:
 			if (stmt->is_local)
-				RequireTransactionChain(isTopLevel, "SET LOCAL");
+				WarnNoTransactionChain(isTopLevel, "SET LOCAL");
 			(void) set_config_option(stmt->name,
 									 ExtractSetVariableArgs(stmt),
 									 (superuser() ? PGC_SUSET : PGC_USERSET),
@@ -6295,7 +6321,7 @@ ExecSetVariableStmt(VariableSetStmt *stmt, bool isTopLevel)
 			{
 				ListCell   *head;
 
-				RequireTransactionChain(isTopLevel, "SET TRANSACTION");
+				WarnNoTransactionChain(isTopLevel, "SET TRANSACTION");
 
 				foreach(head, stmt->args)
 				{
@@ -6346,7 +6372,7 @@ ExecSetVariableStmt(VariableSetStmt *stmt, bool isTopLevel)
 							(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
 							 errmsg("SET LOCAL TRANSACTION SNAPSHOT is not implemented")));
 
-				RequireTransactionChain(isTopLevel, "SET TRANSACTION");
+				WarnNoTransactionChain(isTopLevel, "SET TRANSACTION");
 				Assert(IsA(con, A_Const));
 				Assert(nodeTag(&con->val) == T_String);
 				ImportSnapshot(strVal(&con->val));
@@ -6357,11 +6383,11 @@ ExecSetVariableStmt(VariableSetStmt *stmt, bool isTopLevel)
 			break;
 		case VAR_SET_DEFAULT:
 			if (stmt->is_local)
-				RequireTransactionChain(isTopLevel, "SET LOCAL");
+				WarnNoTransactionChain(isTopLevel, "SET LOCAL");
 			/* fall through */
 		case VAR_RESET:
 			if (strcmp(stmt->name, "transaction_isolation") == 0)
-				RequireTransactionChain(isTopLevel, "RESET TRANSACTION");
+				WarnNoTransactionChain(isTopLevel, "RESET TRANSACTION");
 
 			(void) set_config_option(stmt->name,
 									 NULL,
