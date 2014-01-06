@@ -16,6 +16,7 @@
 #include "libpq/pqformat.h"
 #include "nodes/pg_list.h"
 #include "nodes/plannodes.h"
+#include "piggyback_statistics.h";
 
 //begin stolen hashset
 struct hashset_st {
@@ -64,9 +65,10 @@ extern void printIt();
 
 // Declare piggyback struct.
 typedef struct _piggyback {
+	be_PGStatistics *resultStatistics;
 	Plan *root;
 	hashset_t **distinctValues;
-	long* distinctCounts;
+	float4* distinctCounts;
 	bool newProcessing;
 	int numberOfAttributes;
 	List* columnNames;

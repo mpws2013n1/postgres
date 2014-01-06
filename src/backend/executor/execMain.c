@@ -934,7 +934,7 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 		//printf("newProcessing mit: %d attributes\n", numberOfAtts);
 
 		piggyback->distinctValues = calloc(piggyback->numberOfAttributes, sizeof(hashset_t*));
-		piggyback->distinctCounts = calloc(piggyback->numberOfAttributes, sizeof(long));
+		piggyback->distinctCounts = calloc(piggyback->numberOfAttributes, sizeof(float4));
 		piggyback->minValue = calloc(piggyback->numberOfAttributes, sizeof(int));
 		piggyback->maxValue = calloc(piggyback->numberOfAttributes, sizeof(int));
 		piggyback->isNumeric = calloc(piggyback->numberOfAttributes, sizeof(int));

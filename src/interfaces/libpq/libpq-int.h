@@ -217,7 +217,7 @@ struct pg_result
 	/*
 	 * The following struct contains statistics about the result.
 	 */
-	PGStatistics *statistics;
+	fe_PGStatistics *statistics;
 };
 
 /* PGAsyncStatusType defines the state of the query-execution state machine */

@@ -201,22 +201,23 @@ pqParseInput3(PGconn *conn)
 			int minValue = 0;
 			int maxValue = 0;
 			int isNumeric = 0;
-			PGStatistics *statistics;
+			fe_PGStatistics *statistics;
 			int i;
 
 			switch (id)
 			{
 				case 'X':
 					pqGetInt(&numberOfColumns, 4, conn);
-					statistics = (PGStatistics*)(malloc(sizeof(PGStatistics)));
-					statistics->columnStatistics = (PGColumnStatistic*)(calloc(numberOfColumns, sizeof(PGColumnStatistic)));
+					statistics = (fe_PGStatistics*)(malloc(sizeof(fe_PGStatistics)));
+					statistics->columnStatistics = (fe_PGColumnStatistic*)(calloc(numberOfColumns, sizeof(fe_PGColumnStatistic)));
 					for (i = 0; i < numberOfColumns; i++) {
+						statistics->columnStatistics[i].columnDescriptor = (fe_PGAttDesc*)(calloc(1, sizeof(fe_PGAttDesc)));
 						pqGets(&conn->workBuffer, conn);
-						statistics->columnStatistics[i].columnName = malloc(strlen(conn->workBuffer.data)+1);
-						strcpy(statistics->columnStatistics[i].columnName, conn->workBuffer.data);
+						statistics->columnStatistics[i].columnDescriptor->name = malloc(strlen(conn->workBuffer.data)+1);
+						strcpy(statistics->columnStatistics[i].columnDescriptor->name, conn->workBuffer.data);
 						//printf("Column %s", conn->workBuffer.data);
 						pqGetInt(&columnid, 4, conn);
-						statistics->columnStatistics[i].columnNumber = columnid;
+						statistics->columnStatistics[i].columnDescriptor->columnid = columnid;
 						//printf(" (%d)", columnid);
 						pqGetInt(&n_distinct, 4, conn);
 						statistics->columnStatistics[i].n_distinct = n_distinct;
