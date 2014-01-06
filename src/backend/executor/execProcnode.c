@@ -196,7 +196,7 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 
 		if (result->qual) {
 			int opno = ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->opno;
-			if(opno == 94 || opno == 96 || opno == 410) {
+			if(opno == 94 || opno == 96 || opno == 410) { // it is a equality like number_of_tracks = 3
 				printf("Column %d has ", ((Var*) ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->args->head->data.ptr_value)->varattno);
 				printf("Min, Max, Avg: %d\n", ((Const*) ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->args->tail->data.ptr_value)->constvalue);
 			}
