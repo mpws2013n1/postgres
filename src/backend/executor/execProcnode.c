@@ -514,7 +514,7 @@ ExecProcNode(PlanState *node) {
 	/*
 	 * Process with piggyback if current node is root node.
 	 */
-	if (node->plan == piggyback->root && !TupIsNull(result)) {
+	if (node->plan == piggyback->root && result && result->tts_tupleDescriptor) {
 
 		int numberOfAtts = result->tts_tupleDescriptor->natts;
 		piggyback->numberOfAttributes = numberOfAtts;
@@ -563,6 +563,8 @@ ExecProcNode(PlanState *node) {
 				break;
 			}
 		}
+
+		piggyback->newProcessing = false;
 	}
 
 	if (node->instrument)
