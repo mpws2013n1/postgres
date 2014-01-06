@@ -194,6 +194,14 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 	case T_SeqScan:
 		result = (PlanState *) ExecInitSeqScan((SeqScan *) node, estate,
 				eflags);
+
+		if (result->qual) {
+			int opno = ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->opno;
+			if(opno == 94 || opno == 96 || opno == 410) {
+				printf("Column %d has ", ((Var*) ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->args->head->data.ptr_value)->varattno);
+				printf("Min, Max, Avg: %d\n", ((Const*) ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->args->tail->data.ptr_value)->constvalue);
+			}
+		}
 		break;
 
 	case T_IndexScan:
