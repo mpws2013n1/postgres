@@ -363,6 +363,7 @@ typedef enum NodeTag
 	T_AlterEventTrigStmt,
 	T_RefreshMatViewStmt,
 	T_ReplicaIdentityStmt,
+	T_AlterSystemStmt,
 
 	/*
 	 * TAGS FOR PARSE TREE NODES (parsenodes.h)
@@ -389,6 +390,7 @@ typedef enum NodeTag
 	T_Constraint,
 	T_DefElem,
 	T_RangeTblEntry,
+	T_RangeTblFunction,
 	T_WithCheckOption,
 	T_SortGroupClause,
 	T_WindowClause,
