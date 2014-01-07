@@ -125,6 +125,8 @@
 #include <limits.h>
 
 extern Piggyback *piggyback;
+void buildTwoColumnCombinations(char* valueToConcat, int from,TupleTableSlot *result);
+void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to,char* value);
 
 /* ------------------------------------------------------------------------
  *		ExecInitNode
@@ -539,20 +541,20 @@ ExecProcNode(PlanState *node) {
 				case INT2OID:
 				case INT2VECTOROID:
 				case INT4OID: { // Int
-					piggyback->isNumeric[i] = 1;
+					piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
 					int value = (int)(datum);
 
-					char cvalue[20];
+					char* cvalue[20];
 					sprintf(cvalue, "%d", value);
 					buildTwoColumnCombinations(cvalue, i+1, result);
 
-					if (value
-							< piggyback->minValue[i]|| piggyback->minValue[i] == INT_MAX)
-						piggyback->minValue[i] = value;
-					if (value
-							> piggyback->maxValue[i]|| piggyback->maxValue[i] == NULL)
-						piggyback->maxValue[i] = value;
-					if (piggyback->distinctCounts[i] == -2) {
+					if (value < piggyback->resultStatistics->columnStatistics[i].minValue
+							|| piggyback->resultStatistics->columnStatistics[i].minValue == INT_MAX)
+						piggyback->resultStatistics->columnStatistics[i].minValue = value;
+					if (value > piggyback->resultStatistics->columnStatistics[i].maxValue
+							|| piggyback->resultStatistics->columnStatistics[i].maxValue == NULL)
+						piggyback->resultStatistics->columnStatistics[i].maxValue = value;
+					if (piggyback->resultStatistics->columnStatistics[i].isNumeric == -2) {
 						hashset_add_numeric(piggyback->distinctValues[i], value);
 					}
 					break;
@@ -566,8 +568,8 @@ ExecProcNode(PlanState *node) {
 
 					buildTwoColumnCombinations(value, i+1, result);
 
-					piggyback->isNumeric[i] = 0;
-					if (piggyback->distinctCounts[i] == -2) {
+					piggyback->resultStatistics->columnStatistics[i].isNumeric = 0;
+					if (piggyback->resultStatistics->columnStatistics[i].n_distinct == -2) {
 						hashset_add_string(piggyback->distinctValues[i], value);
 					}
 					break;
@@ -589,7 +591,7 @@ ExecProcNode(PlanState *node) {
 	return result;
 }
 
-void buildTwoColumnCombinations(Datum* valueToConcat, int from,TupleTableSlot *result) {
+void buildTwoColumnCombinations(char* valueToConcat, int from,TupleTableSlot *result) {
 	if(from==piggyback->numberOfAttributes){
 		return;
 	}
@@ -613,7 +615,7 @@ void buildTwoColumnCombinations(Datum* valueToConcat, int from,TupleTableSlot *r
 		case INT4OID: { // Int
 
 			int value = (int) (datum);
-			char cvalue[20];
+			char* cvalue[20];
 			sprintf(cvalue, "%d", value);
 			addToTwoColumnCombinationHashSet(from, valueToConcat, i+1,cvalue);
 			break;

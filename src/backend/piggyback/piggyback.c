@@ -49,7 +49,7 @@ void printDistinctValues() {
 
 	for (i = 0; i < piggyback->numberOfAttributes; i++) {
 				char * columnName = (char *) list_nth(piggyback->columnNames, i);
-				float4 distinctValuesCount = piggyback->distinctCounts[i];
+				float4 distinctValuesCount = piggyback->resultStatistics->columnStatistics[i].n_distinct;
 				// own calculation
 				if(distinctValuesCount==-2){
 					distinctValuesCount = (float4) hashset_num_items(
@@ -63,9 +63,9 @@ void printDistinctValues() {
 				}else if(distinctValuesCount==0){
 					//TODO
 				}
-				int minValue = piggyback->minValue[i];
-				int maxValue = piggyback->maxValue[i];
-				int isNumeric = piggyback->isNumeric[i];
+				int minValue = piggyback->resultStatistics->columnStatistics[i].minValue;
+				int maxValue = piggyback->resultStatistics->columnStatistics[i].maxValue;
+				int isNumeric = piggyback->resultStatistics->columnStatistics[i].isNumeric;
 
 				printf(
 						"column %s (%d) has %ld distinct values, %d as minimum, %d as maximum, numeric: %d \n",
