@@ -939,19 +939,11 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 		}
 
 		piggyback->resultStatistics = (be_PGStatistics*) malloc(sizeof(be_PGStatistics));
+
+		//This will set xxxIsFinal flags to false automatically because of 0-initialized memory
 		piggyback->resultStatistics->columnStatistics = calloc(piggyback->numberOfAttributes,
 				sizeof(be_PGColumnStatistic));
-
-//		piggyback->distinctCounts = calloc(piggyback->numberOfAttributes,
-//				sizeof(float4));
-//		piggyback->minValue = calloc(piggyback->numberOfAttributes,
-//				sizeof(int));
-//		piggyback->maxValue = calloc(piggyback->numberOfAttributes,
-//				sizeof(int));
-//		piggyback->isNumeric = calloc(piggyback->numberOfAttributes,
-//				sizeof(int));
-
-	}
+		}
 
 	/*
 	 * Initialize the private state information for all the nodes in the query
@@ -970,6 +962,10 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 			char *name = tle->resname;
 			// Save column names.
 			piggyback->columnNames = lappend(piggyback->columnNames, name);
+
+			be_PGAttDesc attDesc = (be_PGAttDesc*) calloc(1, sizeof(be_PGAttDesc));
+			//attDesc.
+			//piggyback->resultStatistics->columnStatistics[i].columnDescriptor =
 
 			// Create a hash table for one column each.
 			piggyback->distinctValues[i] = hashset_create();

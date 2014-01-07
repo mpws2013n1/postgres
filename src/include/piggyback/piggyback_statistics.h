@@ -16,8 +16,9 @@
 typedef struct be_PGAttDesc
 {
 	char	   *name;			/* column name */
-	Oid			tableid;		/* source table, if known */
-	int			columnid;		/* source column, if known */
+	Oid			srctableid;		/* source table, if known */
+	int			srccolumnid;	/* source column, if known */
+	int			rescolumnid;	/* result column */
 	Oid			typid;			/* type id */
 } be_PGAttDesc;
 
