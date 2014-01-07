@@ -515,60 +515,65 @@ ExecProcNode(PlanState *node) {
 	/*
 	 * Process with piggyback if current node is root node.
 	 */
-	if (node->plan == piggyback->root && result && result->tts_tupleDescriptor) {
+	if (piggyback != NULL) {
+		if (node->plan == piggyback->root && result
+				&& result->tts_tupleDescriptor) {
+			int numberOfAtts = result->tts_tupleDescriptor->natts;
+			piggyback->numberOfAttributes = numberOfAtts;
+			Form_pg_attribute *attrList = result->tts_tupleDescriptor->attrs;
 
-		int numberOfAtts = result->tts_tupleDescriptor->natts;
-		piggyback->numberOfAttributes = numberOfAtts;
-		Form_pg_attribute *attrList = result->tts_tupleDescriptor->attrs;
+			Datum* datumList = result->tts_values;
+			Datum datum;
 
-		Datum* datumList = result->tts_values;
-		Datum datum;
-
-		int i=0;
-		for (i = 0; i < numberOfAtts; i++) {
-			Form_pg_attribute attr = attrList[i];
-			char *name = attr->attname.data;
-			datum = datumList[i];
-
-			// Use data type aware conversion.
-			switch (attr->atttypid) {
-			case INT8OID:
-			case INT2OID:
-			case INT2VECTOROID:
-			case INT4OID: { // Int
-				piggyback->isNumeric[i] = 1;
-				int value = (int) (result->tts_values[i]);
-				if (value
-						< piggyback->minValue[i]|| piggyback->minValue[i] == INT_MAX)
-					piggyback->minValue[i] = value;
-				if (value
-						> piggyback->maxValue[i]|| piggyback->maxValue[i] == NULL)
-					piggyback->maxValue[i] = value;
-				if(piggyback->distinctCounts[i]==-2){
-					hashset_add(piggyback->distinctValues[i], value);
-				}
-				break;
-			}
-			case VARCHAROID: { // Varchar
-				if (result->tts_isnull[i] || 0 == result->tts_values[i]) {
+			int i = 0;
+			for (i = 0; i < numberOfAtts; i++) {
+				if (result->tts_isnull[i]) {
 					continue;
 				}
-				char *value = TextDatumGetCString(result->tts_values[i]);
-				piggyback->isNumeric[i] = 0;
-				if(piggyback->distinctCounts[i]==-2){
-					hashset_add(piggyback->distinctValues[i], value);
-				}
-				break;
-			}
-			case BPCHAROID:{
-				break;
-			}
-			default:
-				break;
-			}
-		}
+				Form_pg_attribute attr = attrList[i];
+				char *name = attr->attname.data;
+				datum = datumList[i];
 
-		piggyback->newProcessing = false;
+				// Use data type aware conversion.
+				switch (attr->atttypid) {
+				case INT8OID:
+				case INT2OID:
+				case INT2VECTOROID:
+				case INT4OID: { // Int
+					piggyback->isNumeric[i] = 1;
+					int value = (int) (result->tts_values[i]);
+					if (value
+							< piggyback->minValue[i]|| piggyback->minValue[i] == INT_MAX)
+						piggyback->minValue[i] = value;
+					if (value
+							> piggyback->maxValue[i]|| piggyback->maxValue[i] == NULL)
+						piggyback->maxValue[i] = value;
+					if (piggyback->distinctCounts[i] == -2) {
+						hashset_add(piggyback->distinctValues[i], value);
+					}
+					break;
+				}
+				case VARCHAROID: { // Varchar
+					if (0 == result->tts_values[i]) {
+						continue;
+					}
+					char *value = TextDatumGetCString(result->tts_values[i]);
+					piggyback->isNumeric[i] = 0;
+					if (piggyback->distinctCounts[i] == -2) {
+						hashset_add(piggyback->distinctValues[i], value);
+					}
+					break;
+				}
+				case BPCHAROID: {
+					break;
+				}
+				default:
+					break;
+				}
+			}
+
+			piggyback->newProcessing = false;
+		}
 	}
 
 	if (node->instrument)
