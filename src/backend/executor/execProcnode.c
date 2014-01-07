@@ -653,7 +653,7 @@ void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to,char
 		fprintf(stderr, "malloc failed\n");
 		exit(EXIT_FAILURE);
 	}
-
+	//TODO add delimeter
 	strcpy(strBuf, valueToConcat);
 	strcpy(strBuf + v1Length, value);
 

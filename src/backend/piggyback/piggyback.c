@@ -31,10 +31,33 @@ void setPiggybackRootNode(Plan *rootNode) {
 }
 
 void printMetaData() {
-	printDistinctValues();
+	printSingleColumnStatistics();
+	printFunctionalDependencies();
 }
 
-void printDistinctValues() {
+void printFunctionalDependencies(){
+	int i;
+	for(i=0;i<piggyback->numberOfAttributes; i++){
+		int j;
+		for(j=i+1; j<piggyback->numberOfAttributes; j++){
+			if(j!=i){
+				int distinctCountI = piggyback->resultStatistics->columnStatistics[i].n_distinct;
+				int distinctCountJ = piggyback->resultStatistics->columnStatistics[j].n_distinct;
+
+				int index = 0;
+				int k;
+				for (k = 0; k < i; k++) {
+					index += piggyback->numberOfAttributes - k;
+				}
+				index += (j-i-1);
+
+				int twoColumnCombinationOfIAndJ = piggyback->twoColumnsCombinations[index];
+			}
+		}
+	}
+}
+
+void printSingleColumnStatistics() {
 	StringInfoData buf;
 	pq_beginmessage(&buf, 'X');
 
@@ -48,38 +71,42 @@ void printDistinctValues() {
 	pq_sendint(&buf, piggyback->numberOfAttributes, 4);
 
 	for (i = 0; i < piggyback->numberOfAttributes; i++) {
-				char * columnName = (char *) list_nth(piggyback->columnNames, i);
-				float4 distinctValuesCount = piggyback->resultStatistics->columnStatistics[i].n_distinct;
-				// own calculation
-				if(distinctValuesCount==-2){
-					distinctValuesCount = (float4) hashset_num_items(
-						piggyback->distinctValues[i]);
-				// unique
-				}else if(distinctValuesCount==-1){
-					distinctValuesCount = piggyback->numberOfTuples;
-				// base stats
-				}else if(distinctValuesCount>-1 && distinctValuesCount<0){
-					distinctValuesCount = piggyback->numberOfTuples*distinctValuesCount*-1;
-				}else if(distinctValuesCount==0){
-					//TODO
-				}
-				int minValue = piggyback->resultStatistics->columnStatistics[i].minValue;
-				int maxValue = piggyback->resultStatistics->columnStatistics[i].maxValue;
-				int isNumeric = piggyback->resultStatistics->columnStatistics[i].isNumeric;
+		char * columnName = (char *) list_nth(piggyback->columnNames, i);
+		float4 distinctValuesCount =
+				piggyback->resultStatistics->columnStatistics[i].n_distinct;
+		// own calculation
+		if (distinctValuesCount == -2) {
+			distinctValuesCount = (float4) hashset_num_items(
+					piggyback->distinctValues[i]);
+			// unique
+		} else if (distinctValuesCount == -1) {
+			distinctValuesCount = piggyback->numberOfTuples;
+			// base stats
+		} else if (distinctValuesCount > -1 && distinctValuesCount < 0) {
+			distinctValuesCount = piggyback->numberOfTuples
+					* distinctValuesCount * -1;
+		} else if (distinctValuesCount == 0) {
+			//TODO
+		}
+		int minValue = piggyback->resultStatistics->columnStatistics[i].minValue;
+		int maxValue = piggyback->resultStatistics->columnStatistics[i].maxValue;
+		int isNumeric =
+				piggyback->resultStatistics->columnStatistics[i].isNumeric;
 
-				printf(
-						"column %s (%d) has %ld distinct values, %d as minimum, %d as maximum, numeric: %d \n",
-						columnName, i, distinctValuesCount, minValue, maxValue, isNumeric);
+		printf(
+				"column %s (%d) has %ld distinct values, %d as minimum, %d as maximum, numeric: %d \n",
+				columnName, i, distinctValuesCount, minValue, maxValue,
+				isNumeric);
 
-				pq_sendstring(&buf, columnName);
-				pq_sendint(&buf, i, 4);
-				pq_sendint(&buf, (int)distinctValuesCount, 4);
-				pq_sendint(&buf, minValue, 4);
-				pq_sendint(&buf, maxValue, 4);
-				pq_sendint(&buf, isNumeric, 4);
-			}
+		pq_sendstring(&buf, columnName);
+		pq_sendint(&buf, i, 4);
+		pq_sendint(&buf, (int) distinctValuesCount, 4);
+		pq_sendint(&buf, minValue, 4);
+		pq_sendint(&buf, maxValue, 4);
+		pq_sendint(&buf, isNumeric, 4);
+	}
 
-		pq_endmessage(&buf);
+	pq_endmessage(&buf);
 }
 
 //begin stolen hashset - https://github.com/avsej/hashset.c
@@ -169,18 +196,17 @@ static void maybe_rehash(hashset_t set) {
 	}
 }
 
-unsigned long hash(unsigned char *str)
-{
-    unsigned long hash = 5381;
-    int c;
+unsigned long hash(unsigned char *str) {
+	unsigned long hash = 5381;
+	int c;
 
-    while (c = *str++)
-        hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+	while (c = *str++)
+		hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
 
-    return hash;
+	return hash;
 }
 
-int hashset_add_string(hashset_t set,  char* string) {
+int hashset_add_string(hashset_t set, char* string) {
 	void* item = hash(string);
 	int rv = hashset_add_member(set, item);
 	maybe_rehash(set);
