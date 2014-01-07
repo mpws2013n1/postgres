@@ -963,9 +963,13 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 			// Save column names.
 			piggyback->columnNames = lappend(piggyback->columnNames, name);
 
-			be_PGAttDesc attDesc = (be_PGAttDesc*) calloc(1, sizeof(be_PGAttDesc));
-			//attDesc.
-			//piggyback->resultStatistics->columnStatistics[i].columnDescriptor =
+			// copy data from TargetEntry into Attribute Descriptor or column statistic
+			be_PGAttDesc *attDesc = (be_PGAttDesc*) calloc(1, sizeof(be_PGAttDesc));
+			attDesc->srctableid = tle->resorigtbl;
+			attDesc->srccolumnid = tle->resorigcol;
+			attDesc->rescolumnid = tle->resno;
+			attDesc->name = tle->resname;
+			piggyback->resultStatistics->columnStatistics[i].columnDescriptor = attDesc;
 
 			// Create a hash table for one column each.
 			piggyback->distinctValues[i] = hashset_create();
