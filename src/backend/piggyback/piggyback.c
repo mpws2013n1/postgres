@@ -50,11 +50,14 @@ void printDistinctValues() {
 	for (i = 0; i < piggyback->numberOfAttributes; i++) {
 				char * columnName = (char *) list_nth(piggyback->columnNames, i);
 				float4 distinctValuesCount = piggyback->distinctCounts[i];
+				// own calculation
 				if(distinctValuesCount==-2){
 					distinctValuesCount = (float4) hashset_num_items(
 						piggyback->distinctValues[i]);
+				// unique
 				}else if(distinctValuesCount==-1){
 					distinctValuesCount = piggyback->numberOfTuples;
+				// base stats
 				}else if(distinctValuesCount>-1 && distinctValuesCount<0){
 					distinctValuesCount = piggyback->numberOfTuples*distinctValuesCount*-1;
 				}else if(distinctValuesCount==0){
