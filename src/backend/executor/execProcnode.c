@@ -125,6 +125,8 @@
 #include <limits.h>
 
 extern Piggyback *piggyback;
+void buildTwoColumnCombinations(char* valueToConcat, int from,TupleTableSlot *result);
+void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to,char* value);
 
 /* ------------------------------------------------------------------------
  *		ExecInitNode
@@ -542,66 +544,149 @@ ExecProcNode(PlanState *node) {
 	/*
 	 * Process with piggyback if current node is root node.
 	 */
-	if (node->plan == piggyback->root && result && result->tts_tupleDescriptor) {
+	if (piggyback != NULL) {
+		if (node->plan == piggyback->root && result
+				&& result->tts_tupleDescriptor) {
+			piggyback->numberOfAttributes = result->tts_tupleDescriptor->natts;
+			Form_pg_attribute *attrList = result->tts_tupleDescriptor->attrs;
 
-		int numberOfAtts = result->tts_tupleDescriptor->natts;
-		piggyback->numberOfAttributes = numberOfAtts;
-		Form_pg_attribute *attrList = result->tts_tupleDescriptor->attrs;
+			Datum* datumList = result->tts_values;
+			Datum datum;
 
-		Datum* datumList = result->tts_values;
-		Datum datum;
-
-		int i=0;
-		for (i = 0; i < numberOfAtts; i++) {
-			Form_pg_attribute attr = attrList[i];
-			char *name = attr->attname.data;
-			datum = datumList[i];
-
-			// Use data type aware conversion.
-			switch (attr->atttypid) {
-			case INT8OID:
-			case INT2OID:
-			case INT2VECTOROID:
-			case INT4OID: { // Int
-				piggyback->isNumeric[i] = 1;
-				int value = (int) (result->tts_values[i]);
-				if (value
-						< piggyback->minValue[i]|| piggyback->minValue[i] == INT_MAX)
-					piggyback->minValue[i] = value;
-				if (value
-						> piggyback->maxValue[i]|| piggyback->maxValue[i] == NULL)
-					piggyback->maxValue[i] = value;
-				if(piggyback->distinctCounts[i]==-2){
-					hashset_add(piggyback->distinctValues[i], value);
-				}
-				break;
-			}
-			case VARCHAROID: { // Varchar
-				if (result->tts_isnull[i] || 0 == result->tts_values[i]) {
+			int i = 0;
+			for (i = 0; i < piggyback->numberOfAttributes; i++) {
+				datum = datumList[i];
+				if (result->tts_isnull[i]) {
 					continue;
 				}
-				char *value = TextDatumGetCString(result->tts_values[i]);
-				piggyback->isNumeric[i] = 0;
-				if(piggyback->distinctCounts[i]==-2){
-					hashset_add(piggyback->distinctValues[i], value);
-				}
-				break;
-			}
-			case BPCHAROID:{
-				break;
-			}
-			default:
-				break;
-			}
-		}
+				Form_pg_attribute attr = attrList[i];
+				char *name = attr->attname.data;
 
-		piggyback->newProcessing = false;
+				// Use data type aware conversion.
+				switch (attr->atttypid) {
+				case INT8OID:
+				case INT2OID:
+				case INT2VECTOROID:
+				case INT4OID: { // Int
+					piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
+					int value = (int)(datum);
+
+					char* cvalue[20];
+					sprintf(cvalue, "%d", value);
+					buildTwoColumnCombinations(cvalue, i+1, result);
+
+					if (value < piggyback->resultStatistics->columnStatistics[i].minValue
+							|| piggyback->resultStatistics->columnStatistics[i].minValue == INT_MAX)
+						piggyback->resultStatistics->columnStatistics[i].minValue = value;
+					if (value > piggyback->resultStatistics->columnStatistics[i].maxValue
+							|| piggyback->resultStatistics->columnStatistics[i].maxValue == NULL)
+						piggyback->resultStatistics->columnStatistics[i].maxValue = value;
+					if (piggyback->resultStatistics->columnStatistics[i].isNumeric == -2) {
+						hashset_add_numeric(piggyback->distinctValues[i], value);
+					}
+					break;
+				}
+				case VARCHAROID: { // Varchar
+					if (0 == datum) {
+						continue;
+					}
+
+					char *value = TextDatumGetCString(datum);
+
+					buildTwoColumnCombinations(value, i+1, result);
+
+					piggyback->resultStatistics->columnStatistics[i].isNumeric = 0;
+					if (piggyback->resultStatistics->columnStatistics[i].n_distinct == -2) {
+						hashset_add_string(piggyback->distinctValues[i], value);
+					}
+					break;
+				}
+				case BPCHAROID: {
+					break;
+				}
+				default:
+					break;
+				}
+			}
+			piggyback->newProcessing = false;
+		}
 	}
 
 	if (node->instrument)
 		InstrStopNode(node->instrument, TupIsNull(result) ? 0.0 : 1.0);
 
 	return result;
+}
+
+void buildTwoColumnCombinations(char* valueToConcat, int from,TupleTableSlot *result) {
+	if(from==piggyback->numberOfAttributes){
+		return;
+	}
+	Form_pg_attribute *attrList = result->tts_tupleDescriptor->attrs;
+	Datum* datumList = result->tts_values;
+	Datum datum;
+
+	int i;
+	for (i = from; i < piggyback->numberOfAttributes; i++) {
+		if (result->tts_isnull[i]) {
+			continue;
+		}
+		datum = datumList[i];
+
+		Form_pg_attribute attr = attrList[i];
+		// Use data type aware conversion.
+		switch (attr->atttypid) {
+		case INT8OID:
+		case INT2OID:
+		case INT2VECTOROID:
+		case INT4OID: { // Int
+
+			int value = (int) (datum);
+			char* cvalue[20];
+			sprintf(cvalue, "%d", value);
+			addToTwoColumnCombinationHashSet(from, valueToConcat, i+1,cvalue);
+			break;
+		}
+		case VARCHAROID: { // Varchar
+			if (0 == datum) {
+				continue;
+			}
+			char *value = TextDatumGetCString(datum);
+			addToTwoColumnCombinationHashSet(from, valueToConcat, i+1, value);
+			break;
+		}
+		case BPCHAROID: {
+			break;
+		}
+		default:
+			break;
+		}
+	}
+}
+
+void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to,char* value){
+	int index = 0;
+	int i;
+	for(i = 1; i<from;i++){
+		index += piggyback->numberOfAttributes-i;
+	}
+
+	const size_t v1Length = strlen(valueToConcat);
+	const size_t v2Length = strlen(value);
+	const size_t totalLength = v1Length + v2Length;
+
+	char * const strBuf = malloc(totalLength + 1);
+	if (strBuf == NULL) {
+		fprintf(stderr, "malloc failed\n");
+		exit(EXIT_FAILURE);
+	}
+
+	strcpy(strBuf, valueToConcat);
+	strcpy(strBuf + v1Length, value);
+
+	hashset_add_string(piggyback->twoColumnsCombinations[index], strBuf);
+
+	free(strBuf);
 }
 
 /* ----------------------------------------------------------------

@@ -468,7 +468,9 @@ standard_ExecutorEnd(QueryDesc *queryDesc)
 	 */
 	oldcontext = MemoryContextSwitchTo(estate->es_query_cxt);
 	//piggyback
-	piggyback->numberOfTuples = estate->es_processed;
+	if (piggyback != NULL) {
+		piggyback->numberOfTuples = estate->es_processed;
+	}
 	//done
 	ExecEndPlan(queryDesc->planstate, estate);
 
@@ -915,33 +917,48 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 		i++;
 	}
 
+	if (plan->targetlist != NULL) {
+		piggyback = (Piggyback*) (malloc(sizeof(Piggyback)));
+		piggyback->root = NULL;
+		piggyback->columnNames = NIL;
+		piggyback->numberOfAttributes = plan->targetlist->length;
+
+		piggyback->distinctValues = calloc(piggyback->numberOfAttributes,
+				sizeof(hashset_t*));
+
+		int columnCombinationsCount = (int)((piggyback->numberOfAttributes*piggyback->numberOfAttributes-1)/2);
+
+		piggyback->twoColumnsCombinations = calloc(columnCombinationsCount,sizeof(hashset_t*));
+
+		//create column combinations
+		int cc =0;
+		for(;cc<columnCombinationsCount;cc++){
+			piggyback->twoColumnsCombinations[cc] =  hashset_create();
+		}
+
+		piggyback->resultStatistics = (be_PGStatistics*) malloc(sizeof(be_PGStatistics));
+		piggyback->resultStatistics->columnStatistics = calloc(piggyback->numberOfAttributes,
+				sizeof(be_PGColumnStatistic));
+
+//		piggyback->distinctCounts = calloc(piggyback->numberOfAttributes,
+//				sizeof(float4));
+//		piggyback->minValue = calloc(piggyback->numberOfAttributes,
+//				sizeof(int));
+//		piggyback->maxValue = calloc(piggyback->numberOfAttributes,
+//				sizeof(int));
+//		piggyback->isNumeric = calloc(piggyback->numberOfAttributes,
+//				sizeof(int));
+
+	}
+
 	/*
 	 * Initialize the private state information for all the nodes in the query
 	 * tree.  This opens files, allocates storage and leaves us ready to start
 	 * processing tuples.
 	 */
-
-	//initialize piggyback object
-	initPiggyback();
-	piggyback->numberOfAttributes = plan->targetlist->length;
-
 	planstate = ExecInitNode(plan, estate, eflags);
 
-
-	// Build array of hashes of distinct values.
-	if (piggyback->newProcessing) {
-		piggyback->newProcessing = false;
-
-		//printf("newProcessing mit: %d attributes\n", numberOfAtts);
-
-		piggyback->distinctValues = calloc(piggyback->numberOfAttributes, sizeof(hashset_t*));
-		piggyback->distinctCounts = calloc(piggyback->numberOfAttributes, sizeof(float4));
-		piggyback->minValue = calloc(piggyback->numberOfAttributes, sizeof(int));
-		piggyback->maxValue = calloc(piggyback->numberOfAttributes, sizeof(int));
-		piggyback->isNumeric = calloc(piggyback->numberOfAttributes, sizeof(int));
-
-		int useDistinctStatsFromBaseStats = !nodeHasFilter(planstate);
-
+	if (planstate->plan->targetlist != NULL) {
 		// Create a hash table for one column each.
 		ListCell *tlist;
 		int i = 0;
@@ -954,12 +971,14 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 
 			// Create a hash table for one column each.
 			piggyback->distinctValues[i] = hashset_create();
-			//initialize distinct count with -2 to signal that nothing was gathered from basestats
-			piggyback->distinctCounts[i] = -2;
-			piggyback->minValue[i] = INT_MAX;
-			piggyback->maxValue[i] = NULL;
-			piggyback->isNumeric[i] = NULL;
 
+			//initialize distinct count with -2 to signal that nothing was gathered from basestats
+			piggyback->resultStatistics->columnStatistics[i].n_distinct = -2;
+			piggyback->resultStatistics->columnStatistics[i].minValue = INT_MAX;
+			piggyback->resultStatistics->columnStatistics[i].maxValue = NULL;
+			piggyback->resultStatistics->columnStatistics[i].isNumeric = NULL;
+
+			int useDistinctStatsFromBaseStats = !nodeHasFilter(planstate);
 			if (useDistinctStatsFromBaseStats == 1) {
 				unsigned int relOid = tle->resorigtbl;
 				int attnum = get_attnum(relOid, name);
@@ -970,20 +989,18 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 					Form_pg_statistic statStruct =
 							(Form_pg_statistic) GETSTRUCT(statsTuple);
 
-					piggyback->distinctCounts[i] =
-							statStruct->stadistinct;
+					piggyback->resultStatistics->columnStatistics[i].n_distinct = statStruct->stadistinct;
 					ReleaseSysCache(statsTuple);
 				}
 			}
 			i++;
 		}
-	}
 
-	if (piggyback->root == NULL) {
-		setPiggybackRootNode(plan);
+		if (piggyback->root == NULL) {
+			setPiggybackRootNode(plan);
+		}
 	}
 	//done
-
 
 
 	/*

@@ -68,13 +68,10 @@ typedef struct _piggyback {
 	be_PGStatistics *resultStatistics;
 	Plan *root;
 	hashset_t **distinctValues;
-	float4* distinctCounts;
+	hashset_t **twoColumnsCombinations;
 	bool newProcessing;
 	int numberOfAttributes;
 	List* columnNames;
-	int *minValue;
-	int *maxValue;
-	int *isNumeric;
 	int numberOfTuples;
 } Piggyback;
 
