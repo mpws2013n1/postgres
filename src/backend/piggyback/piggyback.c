@@ -36,7 +36,25 @@ void printMetaData() {
 }
 
 void printFunctionalDependencies(){
+	int i;
+	for(i=0;i<piggyback->numberOfAttributes; i++){
+		int j;
+		for(j=i+1; j<piggyback->numberOfAttributes; j++){
+			if(j!=i){
+				int distinctCountI = piggyback->resultStatistics->columnStatistics[i].n_distinct;
+				int distinctCountJ = piggyback->resultStatistics->columnStatistics[j].n_distinct;
 
+				int index = 0;
+				int k;
+				for (k = 0; k < i; k++) {
+					index += piggyback->numberOfAttributes - k;
+				}
+				index += (j-i-1);
+
+				int twoColumnCombinationOfIAndJ = piggyback->twoColumnsCombinations[index];
+			}
+		}
+	}
 }
 
 void printSingleColumnStatistics() {
