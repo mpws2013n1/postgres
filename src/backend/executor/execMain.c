@@ -468,7 +468,9 @@ standard_ExecutorEnd(QueryDesc *queryDesc)
 	 */
 	oldcontext = MemoryContextSwitchTo(estate->es_query_cxt);
 	//piggyback
-	piggyback->numberOfTuples = estate->es_processed;
+	if (piggyback != NULL) {
+		piggyback->numberOfTuples = estate->es_processed;
+	}
 	//done
 	ExecEndPlan(queryDesc->planstate, estate);
 
@@ -924,66 +926,70 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 	planstate = ExecInitNode(plan, estate, eflags);
 
 	//initialize piggyback object
-	initPiggyback();
-	piggyback->numberOfAttributes = planstate->plan->targetlist->length;
 
-	// Build array of hashes of distinct values.
-	if (piggyback->newProcessing) {
-		piggyback->newProcessing = false;
+	if (planstate->plan->targetlist != NULL) {
+		initPiggyback();
+		piggyback->numberOfAttributes = planstate->plan->targetlist->length;
+		// Build array of hashes of distinct values.
+		if (piggyback->newProcessing) {
+			piggyback->newProcessing = false;
 
-		//printf("newProcessing mit: %d attributes\n", numberOfAtts);
+			//printf("newProcessing mit: %d attributes\n", numberOfAtts);
 
-		piggyback->distinctValues = calloc(piggyback->numberOfAttributes, sizeof(hashset_t*));
-		piggyback->distinctCounts = calloc(piggyback->numberOfAttributes, sizeof(float4));
-		piggyback->minValue = calloc(piggyback->numberOfAttributes, sizeof(int));
-		piggyback->maxValue = calloc(piggyback->numberOfAttributes, sizeof(int));
-		piggyback->isNumeric = calloc(piggyback->numberOfAttributes, sizeof(int));
+			piggyback->distinctValues = calloc(piggyback->numberOfAttributes,
+					sizeof(hashset_t*));
+			piggyback->distinctCounts = calloc(piggyback->numberOfAttributes,
+					sizeof(float4));
+			piggyback->minValue = calloc(piggyback->numberOfAttributes,
+					sizeof(int));
+			piggyback->maxValue = calloc(piggyback->numberOfAttributes,
+					sizeof(int));
+			piggyback->isNumeric = calloc(piggyback->numberOfAttributes,
+					sizeof(int));
 
-		int useDistinctStatsFromBaseStats = !nodeHasFilter(planstate);
-
-		// Create a hash table for one column each.
-		ListCell *tlist;
-		int i = 0;
-		foreach(tlist, planstate->plan->targetlist)
-		{
-			TargetEntry *tle = (TargetEntry *) lfirst(tlist);
-			char *name = tle->resname;
-			// Save column names.
-			piggyback->columnNames = lappend(piggyback->columnNames, name);
+			int useDistinctStatsFromBaseStats = !nodeHasFilter(planstate);
 
 			// Create a hash table for one column each.
-			piggyback->distinctValues[i] = hashset_create();
-			//initialize distinct count with -2 to signal that nothing was gathered from basestats
-			piggyback->distinctCounts[i] = -2;
-			piggyback->minValue[i] = INT_MAX;
-			piggyback->maxValue[i] = NULL;
-			piggyback->isNumeric[i] = NULL;
+			ListCell *tlist;
+			int i = 0;
+			foreach(tlist, planstate->plan->targetlist)
+			{
+				TargetEntry *tle = (TargetEntry *) lfirst(tlist);
+				char *name = tle->resname;
+				// Save column names.
+				piggyback->columnNames = lappend(piggyback->columnNames, name);
 
-			if (useDistinctStatsFromBaseStats == 1) {
-				unsigned int relOid = tle->resorigtbl;
-				int attnum = get_attnum(relOid, name);
-				HeapTuple statsTuple = SearchSysCache3(STATRELATTINH,
-						ObjectIdGetDatum(relOid), Int16GetDatum(attnum),
-						BoolGetDatum(false));
-				if (statsTuple) {
-					Form_pg_statistic statStruct =
-							(Form_pg_statistic) GETSTRUCT(statsTuple);
+				// Create a hash table for one column each.
+				piggyback->distinctValues[i] = hashset_create();
+				//initialize distinct count with -2 to signal that nothing was gathered from basestats
+				piggyback->distinctCounts[i] = -2;
+				piggyback->minValue[i] = INT_MAX;
+				piggyback->maxValue[i] = NULL;
+				piggyback->isNumeric[i] = NULL;
 
-					piggyback->distinctCounts[i] =
-							statStruct->stadistinct;
-					ReleaseSysCache(statsTuple);
+				if (useDistinctStatsFromBaseStats == 1) {
+					unsigned int relOid = tle->resorigtbl;
+					int attnum = get_attnum(relOid, name);
+					HeapTuple statsTuple = SearchSysCache3(STATRELATTINH,
+							ObjectIdGetDatum(relOid), Int16GetDatum(attnum),
+							BoolGetDatum(false));
+					if (statsTuple) {
+						Form_pg_statistic statStruct =
+								(Form_pg_statistic) GETSTRUCT(statsTuple);
+
+						piggyback->distinctCounts[i] = statStruct->stadistinct;
+						ReleaseSysCache(statsTuple);
+					}
 				}
+				i++;
 			}
-			i++;
+		}
+
+		if (piggyback->root == NULL) {
+			setPiggybackRootNode(plan);
 		}
 	}
-
-	if (piggyback->root == NULL) {
-		setPiggybackRootNode(plan);
-	}
 	//done
-
-
 
 	/*
 	 * Get the tuple descriptor describing the type of tuples to return.
