@@ -203,33 +203,29 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 			// eventually we want to add opno == 533 (also integer equality according to src/include/catalog/pg_operator.h line 299
 			if(opno == 94 || opno == 96 || opno == 410 || opno == 416) { // it is a equality like number_of_tracks = 3
 				be_PGAttDesc *columnData = (be_PGAttDesc*) malloc(sizeof(be_PGAttDesc));
-				//int numberOfAttributes = result->plan->targetlist->length;
+				int numberOfAttributes = result->plan->targetlist->length;
 				int *minAndMaxAndAvg = (int*) malloc(sizeof(int));
 				int columnId = ((Var*) ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->args->head->data.ptr_value)->varattno;
 				*minAndMaxAndAvg = ((Const*) ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->args->tail->data.ptr_value)->constvalue;
 				printf("Column %d has ", columnId);
-				printf("Min, Max, Avg: %d\n", minAndMaxAndAvg);
+				printf("Min, Max, Avg: %d\n", *minAndMaxAndAvg);
 
 				columnData->columnid = columnId;
 				columnData->typid = 20; // TODO: passend zu opno machen
-				if (!piggyback->resultStatistics)
-					piggyback->resultStatistics = (be_PGStatistics*) malloc(sizeof(be_PGStatistics));
-//				if (!piggyback->resultStatistics->columnStatistics)
-//				{
-//					piggyback->resultStatistics->columnStatistics = NIL;
-//				}
-//				be_PGColumnStatistic *columnStatistics = (be_PGColumnStatistic*) malloc(sizeof(be_PGColumnStatistic));
-//				columnStatistics->columnDescriptor = columnData;
-//				columnStatistics->isNumeric = 1;
-//				columnStatistics->maxValue = minAndMaxAndAvg;
-//				columnStatistics->minValue = minAndMaxAndAvg;
-//				columnStatistics->mostFrequentValue = minAndMaxAndAvg;
-//				columnStatistics->n_distinct = 1;
-				//lappend(piggyback->resultStatistics->columnStatistics, columnStatistics);
-				//	piggyback->resultStatistics->columnStatistics = (be_PGColumnStatistic*) malloc(sizeof(be_PGColumnStatistic));
-				//piggyback->resultStatistics->columnStatistics->maxValue = minAndMaxAndAvg;
-				//piggyback->resultStatistics->columnStatistics->minValue = minAndMaxAndAvg;
-				//piggyback->resultStatistics->columnStatistics->columnDescriptor = &columnData;
+
+				// TODO: use correct columnStatistics instead of the first
+				piggyback->resultStatistics->columnStatistics[0].columnDescriptor = columnData;
+				piggyback->resultStatistics->columnStatistics[0].isNumeric = 1;
+				piggyback->resultStatistics->columnStatistics[0].maxValue = minAndMaxAndAvg;
+				piggyback->resultStatistics->columnStatistics[0].minValue = minAndMaxAndAvg;
+				piggyback->resultStatistics->columnStatistics[0].mostFrequentValue = minAndMaxAndAvg;
+				piggyback->resultStatistics->columnStatistics[0].n_distinct = minAndMaxAndAvg;
+
+				// the meta data for this column ist complete and should not be calculated again
+				piggyback->resultStatistics->columnStatistics[0].n_distinctIsFinal = 1;
+				piggyback->resultStatistics->columnStatistics[0].minValueIsFinal = 1;
+				piggyback->resultStatistics->columnStatistics[0].maxValueIsFinal = 1;
+				piggyback->resultStatistics->columnStatistics[0].mostFrequentValueIsFinal = 1;
 			}
 		}
 		break;
