@@ -117,11 +117,12 @@
 #include "utils/builtins.h"
 #include "utils/syscache.h"
 #include "nodes/pg_list.h"
+#include "catalog/pg_attribute.h"
 #include "catalog/pg_statistic.h"
+#include "catalog/pg_type.h"
 #include "access/htup_details.h"
 #include "piggyback/piggyback.h"
 #include <limits.h>
-#include "catalog/pg_type.h"
 
 extern Piggyback *piggyback;
 
@@ -549,6 +550,9 @@ ExecProcNode(PlanState *node) {
 				break;
 			}
 			case VARCHAROID: { // Varchar
+				if (result->tts_isnull[i] || 0 == result->tts_values[i]) {
+					continue;
+				}
 				char *value = TextDatumGetCString(result->tts_values[i]);
 				piggyback->isNumeric[i] = 0;
 				if(piggyback->distinctCounts[i]==-2){
