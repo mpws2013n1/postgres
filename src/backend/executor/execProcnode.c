@@ -121,6 +121,7 @@
 #include "access/htup_details.h"
 #include "piggyback/piggyback.h"
 #include <limits.h>
+#include "catalog/pg_type.h"
 
 extern Piggyback *piggyback;
 
@@ -513,60 +514,27 @@ ExecProcNode(PlanState *node) {
 	/*
 	 * Process with piggyback if current node is root node.
 	 */
-	if (node->plan == piggyback->root && !TupIsNull(result)) {
+	if (node->plan == piggyback->root && result && result->tts_tupleDescriptor) {
 
 		int numberOfAtts = result->tts_tupleDescriptor->natts;
 		piggyback->numberOfAttributes = numberOfAtts;
 		Form_pg_attribute *attrList = result->tts_tupleDescriptor->attrs;
-		Form_pg_attribute attr;
-//		int i;
-//
-//		// Build array of hashes of distinct values.
-//		if (piggyback->newProcessing) {
-//			piggyback->newProcessing = false;
-//
-//			//printf("newProcessing mit: %d attributes\n", numberOfAtts);
-//
-//			piggyback->distinctValues = (malloc(
-//					sizeof(hashset_t*) * numberOfAtts));
-//			piggyback->distinctCounts = (malloc(sizeof(int) * numberOfAtts));
-//			piggyback->minValue = (malloc(sizeof(int) * numberOfAtts));
-//			piggyback->maxValue = (malloc(sizeof(int) * numberOfAtts));
-//			piggyback->isNumeric = (malloc(sizeof(int) * numberOfAtts));
-//
-//			char hashTableName[15];
-//
-//			// Create a hash table for one column each.
-//			for (i = 0; i < numberOfAtts; i++) {
-//				//printf("initialize hash table for attribute id: %d\n", i);
-//
-//				// Save column names.
-//				attr = attrList[i];
-//				char *name = attr->attname.data;
-//				piggyback->columnNames = lappend(piggyback->columnNames, name);
-//
-//				// Create a hash table for one column each.
-//				piggyback->distinctValues[i] = hashset_create();
-//				sprintf(hashTableName, "column%d", i);
-//				piggyback->distinctCounts[i] = NULL;
-//				piggyback->minValue[i] = NULL;
-//				piggyback->maxValue[i] = NULL;
-//				piggyback->isNumeric[i] = 0;
-//			}
-//		}
 
 		Datum* datumList = result->tts_values;
 		Datum datum;
 
 		int i=0;
 		for (i = 0; i < numberOfAtts; i++) {
-			attr = attrList[i];
+			Form_pg_attribute attr = attrList[i];
 			char *name = attr->attname.data;
 			datum = datumList[i];
 
 			// Use data type aware conversion.
 			switch (attr->atttypid) {
-			case 23: { // Int
+			case INT8OID:
+			case INT2OID:
+			case INT2VECTOROID:
+			case INT4OID: { // Int
 				piggyback->isNumeric[i] = 1;
 				int value = (int) (result->tts_values[i]);
 				if (value
@@ -578,22 +546,25 @@ ExecProcNode(PlanState *node) {
 				if(piggyback->distinctCounts[i]==-2){
 					hashset_add(piggyback->distinctValues[i], value);
 				}
-
 				break;
 			}
-			case 1043: { // Varchar
+			case VARCHAROID: { // Varchar
 				char *value = TextDatumGetCString(result->tts_values[i]);
 				piggyback->isNumeric[i] = 0;
 				if(piggyback->distinctCounts[i]==-2){
 					hashset_add(piggyback->distinctValues[i], value);
 				}
-
+				break;
+			}
+			case BPCHAROID:{
 				break;
 			}
 			default:
 				break;
 			}
 		}
+
+		piggyback->newProcessing = false;
 	}
 
 	if (node->instrument)

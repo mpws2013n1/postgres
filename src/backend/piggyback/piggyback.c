@@ -42,38 +42,50 @@ void setPiggybackRootNode(Plan *rootNode) {
 }
 
 void printMetaData() {
-	if (!piggyback)
-			return;
-		int i;
+	printDistinctValues();
+}
 
-		StringInfoData buf;
-		pq_beginmessage(&buf, 'X');
-		pq_sendint(&buf, piggyback->numberOfAttributes, 4);
+void printDistinctValues() {
+	StringInfoData buf;
+	pq_beginmessage(&buf, 'X');
 
-		for (i = 0; i < piggyback->numberOfAttributes; i++) {
-			char * columnName = (char *) list_nth(piggyback->columnNames, i);
-			long distinctValuesCount = piggyback->distinctCounts[i];
-			if(distinctValuesCount==-2){
-				distinctValuesCount = (long) hashset_num_items(
-					piggyback->distinctValues[i]);
-			}else if(distinctValuesCount==-1){
-				distinctValuesCount = piggyback->numberOfTuples;
+	if (!piggyback || !piggyback->columnNames || !piggyback->distinctValues) {
+		pq_sendint(&buf, 0, 4);
+		pq_endmessage(&buf);
+		return;
+	}
+
+	int i;
+	pq_sendint(&buf, piggyback->numberOfAttributes, 4);
+
+	for (i = 0; i < piggyback->numberOfAttributes; i++) {
+				char * columnName = (char *) list_nth(piggyback->columnNames, i);
+				float4 distinctValuesCount = piggyback->distinctCounts[i];
+				if(distinctValuesCount==-2){
+					distinctValuesCount = (float4) hashset_num_items(
+						piggyback->distinctValues[i]);
+				}else if(distinctValuesCount==-1){
+					distinctValuesCount = piggyback->numberOfTuples;
+				}else if(distinctValuesCount>-1 && distinctValuesCount<0){
+					distinctValuesCount = piggyback->numberOfTuples*distinctValuesCount*-1;
+				}else if(distinctValuesCount==0){
+					//TODO
+				}
+				int minValue = piggyback->minValue[i];
+				int maxValue = piggyback->maxValue[i];
+				int isNumeric = piggyback->isNumeric[i];
+
+				printf(
+						"column %s (%d) has %ld distinct values, %d as minimum, %d as maximum, numeric: %d \n",
+						columnName, i, distinctValuesCount, minValue, maxValue, isNumeric);
+
+				pq_sendstring(&buf, columnName);
+				pq_sendint(&buf, i, 4);
+				pq_sendint(&buf, (int)distinctValuesCount, 4);
+				pq_sendint(&buf, minValue, 4);
+				pq_sendint(&buf, maxValue, 4);
+				pq_sendint(&buf, isNumeric, 4);
 			}
-			int minValue = piggyback->minValue[i];
-			int maxValue = piggyback->maxValue[i];
-			int isNumeric = piggyback->isNumeric[i];
-
-			printf(
-					"column %s (%d) has %ld distinct values, %d as minimum, %d as maximum, numeric: %d \n",
-					columnName, i, distinctValuesCount, minValue, maxValue, isNumeric);
-
-			pq_sendstring(&buf, columnName);
-			pq_sendint(&buf, i, 4);
-			pq_sendint(&buf, distinctValuesCount, 4);
-			pq_sendint(&buf, minValue, 4);
-			pq_sendint(&buf, maxValue, 4);
-			pq_sendint(&buf, isNumeric, 4);
-		}
 
 		pq_endmessage(&buf);
 }

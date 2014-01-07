@@ -63,6 +63,7 @@ extern void interpret_function_parameter_list(List *parameters,
 								  ArrayType **parameterModes,
 								  ArrayType **parameterNames,
 								  List **parameterDefaults,
+								  Oid *variadicArgType,
 								  Oid *requiredResultType);
 
 /* commands/operatorcmds.c */
@@ -133,6 +134,7 @@ extern Datum transformGenericOptions(Oid catalogId,
 extern char *defGetString(DefElem *def);
 extern double defGetNumeric(DefElem *def);
 extern bool defGetBoolean(DefElem *def);
+extern int32 defGetInt32(DefElem *def);
 extern int64 defGetInt64(DefElem *def);
 extern List *defGetQualifiedName(DefElem *def);
 extern TypeName *defGetTypeName(DefElem *def);

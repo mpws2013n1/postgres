@@ -2596,10 +2596,14 @@ printQuery(const PGresult *result, const printQueryOpt *opt, FILE *fout, FILE *f
 	printTableInit(&cont, &opt->topt, opt->title,
 				   PQnfields(result), PQntuples(result));
 
+	/* Assert caller supplied enough translate_columns[] entries */
+	Assert(opt->translate_columns == NULL ||
+		   opt->n_translate_columns >= cont.ncolumns);
+
 	for (i = 0; i < cont.ncolumns; i++)
 	{
 		char *header;
-		PGColumnStatistic *columnStats;
+		fe_PGColumnStatistic *columnStats;
 		int n_distinct = -1;
 		int minValue;
 		int maxValue;
@@ -2628,7 +2632,7 @@ printQuery(const PGresult *result, const printQueryOpt *opt, FILE *fout, FILE *f
 
 		header = calloc(100,sizeof(char));	// Maximum size of a column header is assumed to be 100.
 		columnStats = result->statistics->columnStatistics;
-		if (i == columnStats[i].columnNumber) {
+		if (i == columnStats[i].columnDescriptor->columnid) {
 			// The order of columnStatistics is the same as the order of the columns.
 			n_distinct = columnStats[i].n_distinct;
 			minValue = columnStats[i].minValue;
@@ -2638,7 +2642,7 @@ printQuery(const PGresult *result, const printQueryOpt *opt, FILE *fout, FILE *f
 			// If not: Linear search for right column statistics
 			int j;
 			for (j = 0; j < cont.ncolumns; j++) {
-				if (i == columnStats[j].columnNumber) {
+				if (i == columnStats[j].columnDescriptor->columnid) {
 					n_distinct = columnStats[j].n_distinct;
 					minValue = columnStats[j].minValue;
 					maxValue = columnStats[j].maxValue;
