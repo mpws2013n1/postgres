@@ -41,8 +41,8 @@ void printFunctionalDependencies(){
 		int j;
 		for(j=i+1; j<piggyback->numberOfAttributes; j++){
 			if(j!=i){
-				int distinctCountI = piggyback->resultStatistics->columnStatistics[i].n_distinct;
-				int distinctCountJ = piggyback->resultStatistics->columnStatistics[j].n_distinct;
+				int distinctCountI = piggyback->resultStatistics->columnStatistics[i].distinct_status;
+				int distinctCountJ = piggyback->resultStatistics->columnStatistics[j].distinct_status;
 
 				int index = 0;
 				int k;
@@ -61,7 +61,7 @@ void printSingleColumnStatistics() {
 	StringInfoData buf;
 	pq_beginmessage(&buf, 'X');
 
-	if (!piggyback || !piggyback->columnNames || !piggyback->distinctValues) {
+	if (!piggyback || !piggyback->distinctValues) {
 		pq_sendint(&buf, 0, 4);
 		pq_endmessage(&buf);
 		return;
@@ -71,9 +71,9 @@ void printSingleColumnStatistics() {
 	pq_sendint(&buf, piggyback->numberOfAttributes, 4);
 
 	for (i = 0; i < piggyback->numberOfAttributes; i++) {
-		char * columnName = (char *) list_nth(piggyback->columnNames, i);
+		char * columnName = piggyback->resultStatistics->columnStatistics[i].columnDescriptor->rescolumnname;
 		float4 distinctValuesCount =
-				piggyback->resultStatistics->columnStatistics[i].n_distinct;
+				piggyback->resultStatistics->columnStatistics[i].distinct_status;
 		// own calculation
 		if (distinctValuesCount == -2) {
 			distinctValuesCount = (float4) hashset_num_items(

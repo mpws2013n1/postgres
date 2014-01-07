@@ -71,7 +71,6 @@ typedef struct _piggyback {
 	hashset_t **twoColumnsCombinations;
 	bool newProcessing;
 	int numberOfAttributes;
-	List* columnNames;
 	int numberOfTuples;
 } Piggyback;
 

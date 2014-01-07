@@ -922,7 +922,6 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 	if (plan->targetlist != NULL) {
 		piggyback = (Piggyback*) (malloc(sizeof(Piggyback)));
 		piggyback->root = NULL;
-		piggyback->columnNames = NIL;
 		piggyback->numberOfAttributes = plan->targetlist->length;
 
 		piggyback->distinctValues = calloc(piggyback->numberOfAttributes,
@@ -939,19 +938,11 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 		}
 
 		piggyback->resultStatistics = (be_PGStatistics*) malloc(sizeof(be_PGStatistics));
+
+		//This will set xxxIsFinal flags to false automatically because of 0-initialized memory
 		piggyback->resultStatistics->columnStatistics = calloc(piggyback->numberOfAttributes,
 				sizeof(be_PGColumnStatistic));
-
-//		piggyback->distinctCounts = calloc(piggyback->numberOfAttributes,
-//				sizeof(float4));
-//		piggyback->minValue = calloc(piggyback->numberOfAttributes,
-//				sizeof(int));
-//		piggyback->maxValue = calloc(piggyback->numberOfAttributes,
-//				sizeof(int));
-//		piggyback->isNumeric = calloc(piggyback->numberOfAttributes,
-//				sizeof(int));
-
-	}
+		}
 
 	/*
 	 * Initialize the private state information for all the nodes in the query
@@ -968,14 +959,20 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 		{
 			TargetEntry *tle = (TargetEntry *) lfirst(tlist);
 			char *name = tle->resname;
-			// Save column names.
-			piggyback->columnNames = lappend(piggyback->columnNames, name);
+
+			// copy data from TargetEntry into Attribute Descriptor or column statistic
+			be_PGAttDesc *attDesc = (be_PGAttDesc*) calloc(1, sizeof(be_PGAttDesc));
+			attDesc->srctableid = tle->resorigtbl;
+			attDesc->srccolumnid = tle->resorigcol;
+			attDesc->rescolumnid = tle->resno;
+			attDesc->rescolumnname = name;
+			piggyback->resultStatistics->columnStatistics[i].columnDescriptor = attDesc;
 
 			// Create a hash table for one column each.
 			piggyback->distinctValues[i] = hashset_create();
 
 			//initialize distinct count with -2 to signal that nothing was gathered from basestats
-			piggyback->resultStatistics->columnStatistics[i].n_distinct = -2;
+			piggyback->resultStatistics->columnStatistics[i].distinct_status = -2;
 			piggyback->resultStatistics->columnStatistics[i].minValue = INT_MAX;
 			piggyback->resultStatistics->columnStatistics[i].maxValue = NULL;
 			piggyback->resultStatistics->columnStatistics[i].isNumeric = NULL;
@@ -991,7 +988,7 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 					Form_pg_statistic statStruct =
 							(Form_pg_statistic) GETSTRUCT(statsTuple);
 
-					piggyback->resultStatistics->columnStatistics[i].n_distinct = statStruct->stadistinct;
+					piggyback->resultStatistics->columnStatistics[i].distinct_status = statStruct->stadistinct;
 					ReleaseSysCache(statsTuple);
 				}
 			}
