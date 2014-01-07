@@ -921,11 +921,12 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 	 * processing tuples.
 	 */
 
-	planstate = ExecInitNode(plan, estate, eflags);
-
 	//initialize piggyback object
 	initPiggyback();
-	piggyback->numberOfAttributes = planstate->plan->targetlist->length;
+	piggyback->numberOfAttributes = plan->targetlist->length;
+
+	planstate = ExecInitNode(plan, estate, eflags);
+
 
 	// Build array of hashes of distinct values.
 	if (piggyback->newProcessing) {
