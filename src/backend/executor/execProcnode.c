@@ -518,15 +518,16 @@ ExecProcNode(PlanState *node) {
 	if (piggyback != NULL) {
 		if (node->plan == piggyback->root && result
 				&& result->tts_tupleDescriptor) {
-			int numberOfAtts = result->tts_tupleDescriptor->natts;
-			piggyback->numberOfAttributes = numberOfAtts;
+			piggyback->numberOfAttributes = result->tts_tupleDescriptor->natts;
 			Form_pg_attribute *attrList = result->tts_tupleDescriptor->attrs;
 
 			Datum* datumList = result->tts_values;
 			Datum datum;
 
+			//buildTwoColumnCombinations(piggyback->numberOfAttributes, datumList);
+
 			int i = 0;
-			for (i = 0; i < numberOfAtts; i++) {
+			for (i = 0; i < piggyback->numberOfAttributes; i++) {
 				if (result->tts_isnull[i]) {
 					continue;
 				}
@@ -541,7 +542,7 @@ ExecProcNode(PlanState *node) {
 				case INT2VECTOROID:
 				case INT4OID: { // Int
 					piggyback->isNumeric[i] = 1;
-					int value = (int) (result->tts_values[i]);
+					int value = (int)(datum);
 					if (value
 							< piggyback->minValue[i]|| piggyback->minValue[i] == INT_MAX)
 						piggyback->minValue[i] = value;
@@ -549,7 +550,7 @@ ExecProcNode(PlanState *node) {
 							> piggyback->maxValue[i]|| piggyback->maxValue[i] == NULL)
 						piggyback->maxValue[i] = value;
 					if (piggyback->distinctCounts[i] == -2) {
-						hashset_add(piggyback->distinctValues[i], value);
+						hashset_add_numeric(piggyback->distinctValues[i], value);
 					}
 					break;
 				}
@@ -557,10 +558,10 @@ ExecProcNode(PlanState *node) {
 					if (0 == result->tts_values[i]) {
 						continue;
 					}
-					char *value = TextDatumGetCString(result->tts_values[i]);
+					char *value = TextDatumGetCString(datum);
 					piggyback->isNumeric[i] = 0;
 					if (piggyback->distinctCounts[i] == -2) {
-						hashset_add(piggyback->distinctValues[i], value);
+						hashset_add_string(piggyback->distinctValues[i], value);
 					}
 					break;
 				}

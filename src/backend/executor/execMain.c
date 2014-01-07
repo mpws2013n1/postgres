@@ -928,61 +928,69 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 	//initialize piggyback object
 
 	if (planstate->plan->targetlist != NULL) {
-		initPiggyback();
+		piggyback = (Piggyback*) (malloc(sizeof(Piggyback)));
+		piggyback->root = NULL;
+		piggyback->columnNames = NIL;
 		piggyback->numberOfAttributes = planstate->plan->targetlist->length;
-		// Build array of hashes of distinct values.
-		if (piggyback->newProcessing) {
-			piggyback->newProcessing = false;
 
-			//printf("newProcessing mit: %d attributes\n", numberOfAtts);
+		piggyback->distinctValues = calloc(piggyback->numberOfAttributes,
+				sizeof(hashset_t*));
 
-			piggyback->distinctValues = calloc(piggyback->numberOfAttributes,
-					sizeof(hashset_t*));
-			piggyback->distinctCounts = calloc(piggyback->numberOfAttributes,
-					sizeof(float4));
-			piggyback->minValue = calloc(piggyback->numberOfAttributes,
-					sizeof(int));
-			piggyback->maxValue = calloc(piggyback->numberOfAttributes,
-					sizeof(int));
-			piggyback->isNumeric = calloc(piggyback->numberOfAttributes,
-					sizeof(int));
+		int columnCombinationsCount = (int)((piggyback->numberOfAttributes*piggyback->numberOfAttributes+1)/2);
 
-			int useDistinctStatsFromBaseStats = !nodeHasFilter(planstate);
+		piggyback->twoColumnsCombinations = calloc(columnCombinationsCount,sizeof(hashset_t*));
+
+		//create column combinations
+		int cc =0;
+		for(;cc<columnCombinationsCount;cc++){
+			piggyback->twoColumnsCombinations[cc] =  hashset_create();
+		}
+
+		piggyback->distinctCounts = calloc(piggyback->numberOfAttributes,
+				sizeof(float4));
+		piggyback->minValue = calloc(piggyback->numberOfAttributes,
+				sizeof(int));
+		piggyback->maxValue = calloc(piggyback->numberOfAttributes,
+				sizeof(int));
+		piggyback->isNumeric = calloc(piggyback->numberOfAttributes,
+				sizeof(int));
+
+		int useDistinctStatsFromBaseStats = !nodeHasFilter(planstate);
+
+		// Create a hash table for one column each.
+		ListCell *tlist;
+		int i = 0;
+		foreach(tlist, planstate->plan->targetlist)
+		{
+			TargetEntry *tle = (TargetEntry *) lfirst(tlist);
+			char *name = tle->resname;
+			// Save column names.
+			piggyback->columnNames = lappend(piggyback->columnNames, name);
 
 			// Create a hash table for one column each.
-			ListCell *tlist;
-			int i = 0;
-			foreach(tlist, planstate->plan->targetlist)
-			{
-				TargetEntry *tle = (TargetEntry *) lfirst(tlist);
-				char *name = tle->resname;
-				// Save column names.
-				piggyback->columnNames = lappend(piggyback->columnNames, name);
+			piggyback->distinctValues[i] = hashset_create();
 
-				// Create a hash table for one column each.
-				piggyback->distinctValues[i] = hashset_create();
-				//initialize distinct count with -2 to signal that nothing was gathered from basestats
-				piggyback->distinctCounts[i] = -2;
-				piggyback->minValue[i] = INT_MAX;
-				piggyback->maxValue[i] = NULL;
-				piggyback->isNumeric[i] = NULL;
+			//initialize distinct count with -2 to signal that nothing was gathered from basestats
+			piggyback->distinctCounts[i] = -2;
+			piggyback->minValue[i] = INT_MAX;
+			piggyback->maxValue[i] = NULL;
+			piggyback->isNumeric[i] = NULL;
 
-				if (useDistinctStatsFromBaseStats == 1) {
-					unsigned int relOid = tle->resorigtbl;
-					int attnum = get_attnum(relOid, name);
-					HeapTuple statsTuple = SearchSysCache3(STATRELATTINH,
-							ObjectIdGetDatum(relOid), Int16GetDatum(attnum),
-							BoolGetDatum(false));
-					if (statsTuple) {
-						Form_pg_statistic statStruct =
-								(Form_pg_statistic) GETSTRUCT(statsTuple);
+			if (useDistinctStatsFromBaseStats == 1) {
+				unsigned int relOid = tle->resorigtbl;
+				int attnum = get_attnum(relOid, name);
+				HeapTuple statsTuple = SearchSysCache3(STATRELATTINH,
+						ObjectIdGetDatum(relOid), Int16GetDatum(attnum),
+						BoolGetDatum(false));
+				if (statsTuple) {
+					Form_pg_statistic statStruct =
+							(Form_pg_statistic) GETSTRUCT(statsTuple);
 
-						piggyback->distinctCounts[i] = statStruct->stadistinct;
-						ReleaseSysCache(statsTuple);
-					}
+					piggyback->distinctCounts[i] = statStruct->stadistinct;
+					ReleaseSysCache(statsTuple);
 				}
-				i++;
 			}
+			i++;
 		}
 
 		if (piggyback->root == NULL) {
