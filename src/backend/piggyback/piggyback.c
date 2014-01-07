@@ -61,7 +61,7 @@ void printSingleColumnStatistics() {
 	StringInfoData buf;
 	pq_beginmessage(&buf, 'X');
 
-	if (!piggyback || !piggyback->columnNames || !piggyback->distinctValues) {
+	if (!piggyback || !piggyback->distinctValues) {
 		pq_sendint(&buf, 0, 4);
 		pq_endmessage(&buf);
 		return;
@@ -71,7 +71,7 @@ void printSingleColumnStatistics() {
 	pq_sendint(&buf, piggyback->numberOfAttributes, 4);
 
 	for (i = 0; i < piggyback->numberOfAttributes; i++) {
-		char * columnName = (char *) list_nth(piggyback->columnNames, i);
+		char * columnName = piggyback->resultStatistics->columnStatistics[i].columnDescriptor->rescolumnname;
 		float4 distinctValuesCount =
 				piggyback->resultStatistics->columnStatistics[i].distinct_status;
 		// own calculation

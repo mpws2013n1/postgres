@@ -922,7 +922,6 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 	if (plan->targetlist != NULL) {
 		piggyback = (Piggyback*) (malloc(sizeof(Piggyback)));
 		piggyback->root = NULL;
-		piggyback->columnNames = NIL;
 		piggyback->numberOfAttributes = plan->targetlist->length;
 
 		piggyback->distinctValues = calloc(piggyback->numberOfAttributes,
@@ -960,15 +959,13 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 		{
 			TargetEntry *tle = (TargetEntry *) lfirst(tlist);
 			char *name = tle->resname;
-			// Save column names.
-			piggyback->columnNames = lappend(piggyback->columnNames, name);
 
 			// copy data from TargetEntry into Attribute Descriptor or column statistic
 			be_PGAttDesc *attDesc = (be_PGAttDesc*) calloc(1, sizeof(be_PGAttDesc));
 			attDesc->srctableid = tle->resorigtbl;
 			attDesc->srccolumnid = tle->resorigcol;
 			attDesc->rescolumnid = tle->resno;
-			attDesc->name = tle->resname;
+			attDesc->rescolumnname = name;
 			piggyback->resultStatistics->columnStatistics[i].columnDescriptor = attDesc;
 
 			// Create a hash table for one column each.
