@@ -35,23 +35,31 @@ void printMetaData() {
 	printFunctionalDependencies();
 }
 
-void printFunctionalDependencies(){
+void printFunctionalDependencies() {
 	int i;
-	for(i=0;i<piggyback->numberOfAttributes; i++){
+	for (i = 0; i < piggyback->numberOfAttributes; i++) {
 		int j;
-		for(j=i+1; j<piggyback->numberOfAttributes; j++){
-			if(j!=i){
-				int distinctCountI = piggyback->resultStatistics->columnStatistics[i].distinct_status;
-				int distinctCountJ = piggyback->resultStatistics->columnStatistics[j].distinct_status;
+		for (j = i + 1; j < piggyback->numberOfAttributes; j++) {
+			if (j != i) {
+				int distinctCountI =
+						piggyback->resultStatistics->columnStatistics[i].distinct_status;
+				int distinctCountJ =
+						piggyback->resultStatistics->columnStatistics[j].distinct_status;
 
 				int index = 0;
 				int k;
 				for (k = 0; k < i; k++) {
 					index += piggyback->numberOfAttributes - k;
 				}
-				index += (j-i-1);
+				index += (j - i - 1);
 
-				int twoColumnCombinationOfIAndJ = piggyback->twoColumnsCombinations[index];
+				int twoColumnCombinationOfIAndJ = (int) hashset_num_items(
+						piggyback->twoColumnsCombinations[index]);
+
+				printf(
+						"FD: col1: %d, col2: %d, distinct1: %d, distinct2: %d, combination_distinct: %d \n",
+						i, j, distinctCountI, distinctCountJ,
+						twoColumnCombinationOfIAndJ);
 			}
 		}
 	}
@@ -71,7 +79,8 @@ void printSingleColumnStatistics() {
 	pq_sendint(&buf, piggyback->numberOfAttributes, 4);
 
 	for (i = 0; i < piggyback->numberOfAttributes; i++) {
-		char * columnName = piggyback->resultStatistics->columnStatistics[i].columnDescriptor->rescolumnname;
+		char * columnName =
+				piggyback->resultStatistics->columnStatistics[i].columnDescriptor->rescolumnname;
 		float4 distinctValuesCount =
 				piggyback->resultStatistics->columnStatistics[i].distinct_status;
 		// own calculation
@@ -88,13 +97,17 @@ void printSingleColumnStatistics() {
 		} else if (distinctValuesCount == 0) {
 			//TODO
 		}
+
+		// Write distinct values for FD calculation
+		piggyback->resultStatistics->columnStatistics[i].distinct_status = distinctValuesCount;
+
 		int minValue = piggyback->resultStatistics->columnStatistics[i].minValue;
 		int maxValue = piggyback->resultStatistics->columnStatistics[i].maxValue;
 		int isNumeric =
 				piggyback->resultStatistics->columnStatistics[i].isNumeric;
 
 		printf(
-				"column %s (%d) has %ld distinct values, %d as minimum, %d as maximum, numeric: %d \n",
+				"column %s (%d) has %d distinct values, %d as minimum, %d as maximum, numeric: %d \n",
 				columnName, i, distinctValuesCount, minValue, maxValue,
 				isNumeric);
 
