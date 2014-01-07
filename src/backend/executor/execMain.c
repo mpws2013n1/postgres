@@ -917,21 +917,13 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 		i++;
 	}
 
-	/*
-	 * Initialize the private state information for all the nodes in the query
-	 * tree.  This opens files, allocates storage and leaves us ready to start
-	 * processing tuples.
-	 */
-
-	planstate = ExecInitNode(plan, estate, eflags);
-
 	//initialize piggyback object
 
-	if (planstate->plan->targetlist != NULL) {
+	if (plan->targetlist != NULL) {
 		piggyback = (Piggyback*) (malloc(sizeof(Piggyback)));
 		piggyback->root = NULL;
 		piggyback->columnNames = NIL;
-		piggyback->numberOfAttributes = planstate->plan->targetlist->length;
+		piggyback->numberOfAttributes = plan->targetlist->length;
 
 		piggyback->distinctValues = calloc(piggyback->numberOfAttributes,
 				sizeof(hashset_t*));
@@ -946,17 +938,29 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 			piggyback->twoColumnsCombinations[cc] =  hashset_create();
 		}
 
-		piggyback->distinctCounts = calloc(piggyback->numberOfAttributes,
-				sizeof(float4));
-		piggyback->minValue = calloc(piggyback->numberOfAttributes,
-				sizeof(int));
-		piggyback->maxValue = calloc(piggyback->numberOfAttributes,
-				sizeof(int));
-		piggyback->isNumeric = calloc(piggyback->numberOfAttributes,
-				sizeof(int));
+		piggyback->resultStatistics = (be_PGStatistics*) malloc(sizeof(be_PGStatistics));
+		piggyback->resultStatistics->columnStatistics = calloc(piggyback->numberOfAttributes,
+				sizeof(be_PGColumnStatistic));
 
-		int useDistinctStatsFromBaseStats = !nodeHasFilter(planstate);
+//		piggyback->distinctCounts = calloc(piggyback->numberOfAttributes,
+//				sizeof(float4));
+//		piggyback->minValue = calloc(piggyback->numberOfAttributes,
+//				sizeof(int));
+//		piggyback->maxValue = calloc(piggyback->numberOfAttributes,
+//				sizeof(int));
+//		piggyback->isNumeric = calloc(piggyback->numberOfAttributes,
+//				sizeof(int));
 
+	}
+
+	/*
+	 * Initialize the private state information for all the nodes in the query
+	 * tree.  This opens files, allocates storage and leaves us ready to start
+	 * processing tuples.
+	 */
+	planstate = ExecInitNode(plan, estate, eflags);
+
+	if (planstate->plan->targetlist != NULL) {
 		// Create a hash table for one column each.
 		ListCell *tlist;
 		int i = 0;
@@ -971,11 +975,12 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 			piggyback->distinctValues[i] = hashset_create();
 
 			//initialize distinct count with -2 to signal that nothing was gathered from basestats
-			piggyback->distinctCounts[i] = -2;
-			piggyback->minValue[i] = INT_MAX;
-			piggyback->maxValue[i] = NULL;
-			piggyback->isNumeric[i] = NULL;
+			piggyback->resultStatistics->columnStatistics[i].n_distinct = -2;
+			piggyback->resultStatistics->columnStatistics[i].minValue = INT_MAX;
+			piggyback->resultStatistics->columnStatistics[i].maxValue = NULL;
+			piggyback->resultStatistics->columnStatistics[i].isNumeric = NULL;
 
+			int useDistinctStatsFromBaseStats = !nodeHasFilter(planstate);
 			if (useDistinctStatsFromBaseStats == 1) {
 				unsigned int relOid = tle->resorigtbl;
 				int attnum = get_attnum(relOid, name);
@@ -986,7 +991,7 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 					Form_pg_statistic statStruct =
 							(Form_pg_statistic) GETSTRUCT(statsTuple);
 
-					piggyback->distinctCounts[i] = statStruct->stadistinct;
+					piggyback->resultStatistics->columnStatistics[i].n_distinct = statStruct->stadistinct;
 					ReleaseSysCache(statsTuple);
 				}
 			}
@@ -998,6 +1003,7 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 		}
 	}
 	//done
+
 
 	/*
 	 * Get the tuple descriptor describing the type of tuples to return.
