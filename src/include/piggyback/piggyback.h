@@ -68,6 +68,7 @@ typedef struct _piggyback {
 	be_PGStatistics *resultStatistics;
 	Plan *root;
 	hashset_t **distinctValues;
+	hashset_t **twoColumnsCombinations;
 	float4* distinctCounts;
 	bool newProcessing;
 	int numberOfAttributes;
