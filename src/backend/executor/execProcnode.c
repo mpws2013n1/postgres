@@ -552,9 +552,9 @@ ExecProcNode(PlanState *node) {
 							|| piggyback->resultStatistics->columnStatistics[i].minValue == INT_MAX)
 						piggyback->resultStatistics->columnStatistics[i].minValue = value;
 					if (value > piggyback->resultStatistics->columnStatistics[i].maxValue
-							|| piggyback->resultStatistics->columnStatistics[i].maxValue == NULL)
+							|| piggyback->resultStatistics->columnStatistics[i].maxValue == INT_MIN)
 						piggyback->resultStatistics->columnStatistics[i].maxValue = value;
-					if (piggyback->resultStatistics->columnStatistics[i].isNumeric == -2) {
+					if (piggyback->resultStatistics->columnStatistics[i].distinct_status == -2) {
 						hashset_add_numeric(piggyback->distinctValues[i], value);
 					}
 					break;
