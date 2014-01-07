@@ -569,7 +569,7 @@ ExecProcNode(PlanState *node) {
 					buildTwoColumnCombinations(value, i+1, result);
 
 					piggyback->resultStatistics->columnStatistics[i].isNumeric = 0;
-					if (piggyback->resultStatistics->columnStatistics[i].n_distinct == -2) {
+					if (piggyback->resultStatistics->columnStatistics[i].distinct_status == -2) {
 						hashset_add_string(piggyback->distinctValues[i], value);
 					}
 					break;

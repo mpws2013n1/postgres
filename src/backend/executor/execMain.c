@@ -975,7 +975,7 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 			piggyback->distinctValues[i] = hashset_create();
 
 			//initialize distinct count with -2 to signal that nothing was gathered from basestats
-			piggyback->resultStatistics->columnStatistics[i].n_distinct = -2;
+			piggyback->resultStatistics->columnStatistics[i].distinct_status = -2;
 			piggyback->resultStatistics->columnStatistics[i].minValue = INT_MAX;
 			piggyback->resultStatistics->columnStatistics[i].maxValue = NULL;
 			piggyback->resultStatistics->columnStatistics[i].isNumeric = NULL;
@@ -991,7 +991,7 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 					Form_pg_statistic statStruct =
 							(Form_pg_statistic) GETSTRUCT(statsTuple);
 
-					piggyback->resultStatistics->columnStatistics[i].n_distinct = statStruct->stadistinct;
+					piggyback->resultStatistics->columnStatistics[i].distinct_status = statStruct->stadistinct;
 					ReleaseSysCache(statsTuple);
 				}
 			}
