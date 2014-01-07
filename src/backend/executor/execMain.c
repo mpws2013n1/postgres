@@ -936,7 +936,7 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 		piggyback->distinctValues = calloc(piggyback->numberOfAttributes,
 				sizeof(hashset_t*));
 
-		int columnCombinationsCount = (int)((piggyback->numberOfAttributes*piggyback->numberOfAttributes+1)/2);
+		int columnCombinationsCount = (int)((piggyback->numberOfAttributes*piggyback->numberOfAttributes-1)/2);
 
 		piggyback->twoColumnsCombinations = calloc(columnCombinationsCount,sizeof(hashset_t*));
 

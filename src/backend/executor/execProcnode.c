@@ -524,16 +524,14 @@ ExecProcNode(PlanState *node) {
 			Datum* datumList = result->tts_values;
 			Datum datum;
 
-			//buildTwoColumnCombinations(piggyback->numberOfAttributes, datumList);
-
 			int i = 0;
 			for (i = 0; i < piggyback->numberOfAttributes; i++) {
+				datum = datumList[i];
 				if (result->tts_isnull[i]) {
 					continue;
 				}
 				Form_pg_attribute attr = attrList[i];
 				char *name = attr->attname.data;
-				datum = datumList[i];
 
 				// Use data type aware conversion.
 				switch (attr->atttypid) {
@@ -543,6 +541,11 @@ ExecProcNode(PlanState *node) {
 				case INT4OID: { // Int
 					piggyback->isNumeric[i] = 1;
 					int value = (int)(datum);
+
+					char cvalue[20];
+					sprintf(cvalue, "%d", value);
+					buildTwoColumnCombinations(cvalue, i+1, result);
+
 					if (value
 							< piggyback->minValue[i]|| piggyback->minValue[i] == INT_MAX)
 						piggyback->minValue[i] = value;
@@ -555,10 +558,14 @@ ExecProcNode(PlanState *node) {
 					break;
 				}
 				case VARCHAROID: { // Varchar
-					if (0 == result->tts_values[i]) {
+					if (0 == datum) {
 						continue;
 					}
+
 					char *value = TextDatumGetCString(datum);
+
+					buildTwoColumnCombinations(value, i+1, result);
+
 					piggyback->isNumeric[i] = 0;
 					if (piggyback->distinctCounts[i] == -2) {
 						hashset_add_string(piggyback->distinctValues[i], value);
@@ -572,7 +579,6 @@ ExecProcNode(PlanState *node) {
 					break;
 				}
 			}
-
 			piggyback->newProcessing = false;
 		}
 	}
@@ -581,6 +587,77 @@ ExecProcNode(PlanState *node) {
 		InstrStopNode(node->instrument, TupIsNull(result) ? 0.0 : 1.0);
 
 	return result;
+}
+
+void buildTwoColumnCombinations(Datum* valueToConcat, int from,TupleTableSlot *result) {
+	if(from==piggyback->numberOfAttributes){
+		return;
+	}
+	Form_pg_attribute *attrList = result->tts_tupleDescriptor->attrs;
+	Datum* datumList = result->tts_values;
+	Datum datum;
+
+	int i;
+	for (i = from; i < piggyback->numberOfAttributes; i++) {
+		if (result->tts_isnull[i]) {
+			continue;
+		}
+		datum = datumList[i];
+
+		Form_pg_attribute attr = attrList[i];
+		// Use data type aware conversion.
+		switch (attr->atttypid) {
+		case INT8OID:
+		case INT2OID:
+		case INT2VECTOROID:
+		case INT4OID: { // Int
+
+			int value = (int) (datum);
+			char cvalue[20];
+			sprintf(cvalue, "%d", value);
+			addToTwoColumnCombinationHashSet(from, valueToConcat, i+1,cvalue);
+			break;
+		}
+		case VARCHAROID: { // Varchar
+			if (0 == datum) {
+				continue;
+			}
+			char *value = TextDatumGetCString(datum);
+			addToTwoColumnCombinationHashSet(from, valueToConcat, i+1, value);
+			break;
+		}
+		case BPCHAROID: {
+			break;
+		}
+		default:
+			break;
+		}
+	}
+}
+
+void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to,char* value){
+	int index = 0;
+	int i;
+	for(i = 1; i<from;i++){
+		index += piggyback->numberOfAttributes-i;
+	}
+
+	const size_t v1Length = strlen(valueToConcat);
+	const size_t v2Length = strlen(value);
+	const size_t totalLength = v1Length + v2Length;
+
+	char * const strBuf = malloc(totalLength + 1);
+	if (strBuf == NULL) {
+		fprintf(stderr, "malloc failed\n");
+		exit(EXIT_FAILURE);
+	}
+
+	strcpy(strBuf, valueToConcat);
+	strcpy(strBuf + v1Length, value);
+
+	hashset_add_string(piggyback->twoColumnsCombinations[index], strBuf);
+
+	free(strBuf);
 }
 
 /* ----------------------------------------------------------------
