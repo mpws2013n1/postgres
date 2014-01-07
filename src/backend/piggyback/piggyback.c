@@ -23,17 +23,6 @@ void printIt() {
 Piggyback *piggyback = NULL;
 
 /*
- * Initialize piggyback if not already done.
- */
-void initPiggyback() {
-	piggyback = (Piggyback*) (malloc(sizeof(Piggyback)));
-	piggyback->newProcessing = true;
-	piggyback->columnNames = NIL;
-	piggyback->numberOfAttributes = 0;
-	piggyback->root = NULL;
-}
-
-/*
  * Set root node to enable data collection.
  */
 void setPiggybackRootNode(Plan *rootNode) {
@@ -61,11 +50,14 @@ void printDistinctValues() {
 	for (i = 0; i < piggyback->numberOfAttributes; i++) {
 				char * columnName = (char *) list_nth(piggyback->columnNames, i);
 				float4 distinctValuesCount = piggyback->distinctCounts[i];
+				// own calculation
 				if(distinctValuesCount==-2){
 					distinctValuesCount = (float4) hashset_num_items(
 						piggyback->distinctValues[i]);
+				// unique
 				}else if(distinctValuesCount==-1){
 					distinctValuesCount = piggyback->numberOfTuples;
+				// base stats
 				}else if(distinctValuesCount>-1 && distinctValuesCount<0){
 					distinctValuesCount = piggyback->numberOfTuples*distinctValuesCount*-1;
 				}else if(distinctValuesCount==0){
@@ -177,7 +169,25 @@ static void maybe_rehash(hashset_t set) {
 	}
 }
 
-int hashset_add(hashset_t set, void *item) {
+unsigned long hash(unsigned char *str)
+{
+    unsigned long hash = 5381;
+    int c;
+
+    while (c = *str++)
+        hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+
+    return hash;
+}
+
+int hashset_add_string(hashset_t set,  char* string) {
+	void* item = hash(string);
+	int rv = hashset_add_member(set, item);
+	maybe_rehash(set);
+	return rv;
+}
+
+int hashset_add_numeric(hashset_t set, void *item) {
 	int rv = hashset_add_member(set, item);
 	maybe_rehash(set);
 	return rv;

@@ -468,7 +468,9 @@ standard_ExecutorEnd(QueryDesc *queryDesc)
 	 */
 	oldcontext = MemoryContextSwitchTo(estate->es_query_cxt);
 	//piggyback
-	piggyback->numberOfTuples = estate->es_processed;
+	if (piggyback != NULL) {
+		piggyback->numberOfTuples = estate->es_processed;
+	}
 	//done
 	ExecEndPlan(queryDesc->planstate, estate);
 
@@ -924,20 +926,34 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 	planstate = ExecInitNode(plan, estate, eflags);
 
 	//initialize piggyback object
-	initPiggyback();
-	piggyback->numberOfAttributes = planstate->plan->targetlist->length;
 
-	// Build array of hashes of distinct values.
-	if (piggyback->newProcessing) {
-		piggyback->newProcessing = false;
+	if (planstate->plan->targetlist != NULL) {
+		piggyback = (Piggyback*) (malloc(sizeof(Piggyback)));
+		piggyback->root = NULL;
+		piggyback->columnNames = NIL;
+		piggyback->numberOfAttributes = planstate->plan->targetlist->length;
 
-		//printf("newProcessing mit: %d attributes\n", numberOfAtts);
+		piggyback->distinctValues = calloc(piggyback->numberOfAttributes,
+				sizeof(hashset_t*));
 
-		piggyback->distinctValues = calloc(piggyback->numberOfAttributes, sizeof(hashset_t*));
-		piggyback->distinctCounts = calloc(piggyback->numberOfAttributes, sizeof(float4));
-		piggyback->minValue = calloc(piggyback->numberOfAttributes, sizeof(int));
-		piggyback->maxValue = calloc(piggyback->numberOfAttributes, sizeof(int));
-		piggyback->isNumeric = calloc(piggyback->numberOfAttributes, sizeof(int));
+		int columnCombinationsCount = (int)((piggyback->numberOfAttributes*piggyback->numberOfAttributes+1)/2);
+
+		piggyback->twoColumnsCombinations = calloc(columnCombinationsCount,sizeof(hashset_t*));
+
+		//create column combinations
+		int cc =0;
+		for(;cc<columnCombinationsCount;cc++){
+			piggyback->twoColumnsCombinations[cc] =  hashset_create();
+		}
+
+		piggyback->distinctCounts = calloc(piggyback->numberOfAttributes,
+				sizeof(float4));
+		piggyback->minValue = calloc(piggyback->numberOfAttributes,
+				sizeof(int));
+		piggyback->maxValue = calloc(piggyback->numberOfAttributes,
+				sizeof(int));
+		piggyback->isNumeric = calloc(piggyback->numberOfAttributes,
+				sizeof(int));
 
 		int useDistinctStatsFromBaseStats = !nodeHasFilter(planstate);
 
@@ -953,6 +969,7 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 
 			// Create a hash table for one column each.
 			piggyback->distinctValues[i] = hashset_create();
+
 			//initialize distinct count with -2 to signal that nothing was gathered from basestats
 			piggyback->distinctCounts[i] = -2;
 			piggyback->minValue[i] = INT_MAX;
@@ -969,21 +986,18 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 					Form_pg_statistic statStruct =
 							(Form_pg_statistic) GETSTRUCT(statsTuple);
 
-					piggyback->distinctCounts[i] =
-							statStruct->stadistinct;
+					piggyback->distinctCounts[i] = statStruct->stadistinct;
 					ReleaseSysCache(statsTuple);
 				}
 			}
 			i++;
 		}
-	}
 
-	if (piggyback->root == NULL) {
-		setPiggybackRootNode(plan);
+		if (piggyback->root == NULL) {
+			setPiggybackRootNode(plan);
+		}
 	}
 	//done
-
-
 
 	/*
 	 * Get the tuple descriptor describing the type of tuples to return.
