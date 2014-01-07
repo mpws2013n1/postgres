@@ -81,6 +81,6 @@ extern void setPiggybackRootNode(Plan *rootNode);
 
 // printing
 extern void printMetaData();
-extern void printDistinctValues();
+extern void printSingleColumnStatistics();
 
 #endif   /* PIGGYBACK_H */

@@ -31,10 +31,15 @@ void setPiggybackRootNode(Plan *rootNode) {
 }
 
 void printMetaData() {
-	printDistinctValues();
+	printSingleColumnStatistics();
+	printFunctionalDependencies();
 }
 
-void printDistinctValues() {
+void printFunctionalDependencies(){
+
+}
+
+void printSingleColumnStatistics() {
 	StringInfoData buf;
 	pq_beginmessage(&buf, 'X');
 
@@ -83,7 +88,7 @@ void printDistinctValues() {
 		pq_sendint(&buf, isNumeric, 4);
 	}
 
-		pq_endmessage(&buf);
+	pq_endmessage(&buf);
 }
 
 //begin stolen hashset - https://github.com/avsej/hashset.c
@@ -173,18 +178,17 @@ static void maybe_rehash(hashset_t set) {
 	}
 }
 
-unsigned long hash(unsigned char *str)
-{
-    unsigned long hash = 5381;
-    int c;
+unsigned long hash(unsigned char *str) {
+	unsigned long hash = 5381;
+	int c;
 
-    while (c = *str++)
-        hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+	while (c = *str++)
+		hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
 
-    return hash;
+	return hash;
 }
 
-int hashset_add_string(hashset_t set,  char* string) {
+int hashset_add_string(hashset_t set, char* string) {
 	void* item = hash(string);
 	int rv = hashset_add_member(set, item);
 	maybe_rehash(set);
