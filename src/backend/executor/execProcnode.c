@@ -558,6 +558,7 @@ ExecProcNode(PlanState *node) {
 				char *name = attr->attname.data;
 
 				// Use data type aware conversion.
+
 				switch (attr->atttypid) {
 				case INT8OID:
 				case INT2OID:
