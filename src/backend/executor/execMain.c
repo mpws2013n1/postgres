@@ -973,9 +973,12 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 			piggyback->distinctValues[i] = hashset_create();
 
 			//initialize distinct count with -2 to signal that nothing was gathered from basestats
-			piggyback->resultStatistics->columnStatistics[i].n_distinct = -2;
-			piggyback->resultStatistics->columnStatistics[i].minValue = INT_MAX;
-			piggyback->resultStatistics->columnStatistics[i].maxValue = NULL;
+			if (!piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal)
+				piggyback->resultStatistics->columnStatistics[i].n_distinct = -2;
+			if (!piggyback->resultStatistics->columnStatistics[i].minValueIsFinal)
+				piggyback->resultStatistics->columnStatistics[i].minValue = INT_MAX;
+			if (!piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal)
+				piggyback->resultStatistics->columnStatistics[i].maxValue = NULL;
 			piggyback->resultStatistics->columnStatistics[i].isNumeric = NULL;
 
 			int useDistinctStatsFromBaseStats = !nodeHasFilter(planstate);

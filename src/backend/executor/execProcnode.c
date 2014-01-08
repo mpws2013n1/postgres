@@ -206,13 +206,12 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 				int numberOfAttributes = result->plan->targetlist->length;
 				int *minAndMaxAndAvg = (int*) malloc(sizeof(int));
 				int columnId = ((Var*) ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->args->head->data.ptr_value)->varattno;
-				*minAndMaxAndAvg = ((Const*) ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->args->tail->data.ptr_value)->constvalue;
-				printf("Column %d has ", columnId);
-				printf("Min, Max, Avg: %d\n", *minAndMaxAndAvg);
+				minAndMaxAndAvg = &(((Const*) ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->args->tail->data.ptr_value)->constvalue);
 
 				columnData->columnid = columnId;
 				columnData->typid = 20; // TODO: passend zu opno machen
 
+				//int one = 1;
 				// TODO: use correct columnStatistics instead of the first
 				piggyback->resultStatistics->columnStatistics[0].columnDescriptor = columnData;
 				piggyback->resultStatistics->columnStatistics[0].isNumeric = 1;
@@ -571,12 +570,14 @@ ExecProcNode(PlanState *node) {
 					sprintf(cvalue, "%d", value);
 					buildTwoColumnCombinations(cvalue, i+1, result);
 
-					if (value < piggyback->resultStatistics->columnStatistics[i].minValue
-							|| piggyback->resultStatistics->columnStatistics[i].minValue == INT_MAX)
-						piggyback->resultStatistics->columnStatistics[i].minValue = value;
-					if (value > piggyback->resultStatistics->columnStatistics[i].maxValue
-							|| piggyback->resultStatistics->columnStatistics[i].maxValue == NULL)
-						piggyback->resultStatistics->columnStatistics[i].maxValue = value;
+					if (!piggyback->resultStatistics->columnStatistics[i].minValueIsFinal)
+						if (value < piggyback->resultStatistics->columnStatistics[i].minValue
+								|| piggyback->resultStatistics->columnStatistics[i].minValue == INT_MAX)
+							piggyback->resultStatistics->columnStatistics[i].minValue = value;
+					if (!piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal)
+						if (value > piggyback->resultStatistics->columnStatistics[i].maxValue
+								|| piggyback->resultStatistics->columnStatistics[i].maxValue == NULL)
+							piggyback->resultStatistics->columnStatistics[i].maxValue = value;
 					if (piggyback->resultStatistics->columnStatistics[i].isNumeric == -2) {
 						hashset_add_numeric(piggyback->distinctValues[i], value);
 					}
