@@ -208,7 +208,8 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 				int columnId = ((Var*) ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->args->head->data.ptr_value)->varattno;
 				minAndMaxAndAvg = &(((Const*) ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->args->tail->data.ptr_value)->constvalue);
 
-				columnData->columnid = columnId;
+				columnData->srccolumnid = columnId;
+				//columnData->columnid = columnId;
 				columnData->typid = 20; // TODO: passend zu opno machen
 
 				//int one = 1;
@@ -218,7 +219,7 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 				piggyback->resultStatistics->columnStatistics[0].maxValue = minAndMaxAndAvg;
 				piggyback->resultStatistics->columnStatistics[0].minValue = minAndMaxAndAvg;
 				piggyback->resultStatistics->columnStatistics[0].mostFrequentValue = minAndMaxAndAvg;
-				piggyback->resultStatistics->columnStatistics[0].n_distinct = minAndMaxAndAvg;
+				piggyback->resultStatistics->columnStatistics[0].distinct_status = minAndMaxAndAvg;
 
 				// the meta data for this column ist complete and should not be calculated again
 				piggyback->resultStatistics->columnStatistics[0].n_distinctIsFinal = 1;
@@ -594,7 +595,7 @@ ExecProcNode(PlanState *node) {
 					buildTwoColumnCombinations(value, i+1, result);
 
 					piggyback->resultStatistics->columnStatistics[i].isNumeric = 0;
-					if (piggyback->resultStatistics->columnStatistics[i].n_distinct == -2) {
+					if (piggyback->resultStatistics->columnStatistics[i].distinct_status == -2) {
 						hashset_add_string(piggyback->distinctValues[i], value);
 					}
 					break;
@@ -678,7 +679,7 @@ void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to,char
 		fprintf(stderr, "malloc failed\n");
 		exit(EXIT_FAILURE);
 	}
-
+	//TODO add delimeter
 	strcpy(strBuf, valueToConcat);
 	strcpy(strBuf + v1Length, value);
 

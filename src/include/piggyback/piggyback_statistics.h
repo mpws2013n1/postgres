@@ -15,16 +15,17 @@
 
 typedef struct be_PGAttDesc
 {
-	char	   *name;			/* column name */
-	Oid			tableid;		/* source table, if known */
-	int			columnid;		/* source column, if known */
+	char	   *rescolumnname;			/* column name */
+	Oid			srctableid;		/* source table, if known */
+	int			srccolumnid;	/* source column, if known */
+	int			rescolumnid;	/* result column */
 	Oid			typid;			/* type id */
 } be_PGAttDesc;
 
 typedef struct be_PGColumnStatistic {
 	be_PGAttDesc *columnDescriptor;
 	int isNumeric;					//Boolean
-	int n_distinct;
+	int distinct_status;
 	int n_distinctIsFinal;			//Boolean
 	void *minValue;
 	int minValueIsFinal;			//Boolean

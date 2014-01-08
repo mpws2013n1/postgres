@@ -71,7 +71,6 @@ typedef struct _piggyback {
 	hashset_t **twoColumnsCombinations;
 	bool newProcessing;
 	int numberOfAttributes;
-	List* columnNames;
 	int numberOfTuples;
 } Piggyback;
 
@@ -81,6 +80,7 @@ extern void setPiggybackRootNode(Plan *rootNode);
 
 // printing
 extern void printMetaData();
-extern void printDistinctValues();
+extern void printSingleColumnStatistics();
+extern void printFunctionalDependencies();
 
 #endif   /* PIGGYBACK_H */
