@@ -35,21 +35,26 @@ void printMetaData() {
 	printFunctionalDependencies();
 }
 
-void printFunctionalDependencies(){
+void printFunctionalDependencies() {
 	int i;
-	for(i=0;i<piggyback->numberOfAttributes; i++){
+	for (i = 0; i < piggyback->numberOfAttributes; i++) {
 		int j;
-		for(j=i+1; j<piggyback->numberOfAttributes; j++){
-			if(j!=i){
-				int distinctCountI = piggyback->resultStatistics->columnStatistics[i].distinct_status;
-				int distinctCountJ = piggyback->resultStatistics->columnStatistics[j].distinct_status;
+		for (j = i + 1; j < piggyback->numberOfAttributes; j++) {
+			if (j != i) {
+				int distinctCountI =
+						piggyback->resultStatistics->columnStatistics[i].distinct_status;
+				int distinctCountJ =
+						piggyback->resultStatistics->columnStatistics[j].distinct_status;
 
 				int index = 0;
 				int k;
 				for (k = 0; k < i; k++) {
 					index += piggyback->numberOfAttributes - k;
 				}
-				index += (j-i-1);
+				index += (j - i - 1);
+
+				int twoColumnCombinationOfIAndJ = (int) hashset_num_items(
+						piggyback->twoColumnsCombinations[index]);
 
 				int twoColumnCombinationOfIAndJ = (int) hashset_num_items(piggyback->twoColumnsCombinations[index]);
 
@@ -75,7 +80,8 @@ void printSingleColumnStatistics() {
 	pq_sendint(&buf, piggyback->numberOfAttributes, 4);
 
 	for (i = 0; i < piggyback->numberOfAttributes; i++) {
-		char * columnName = piggyback->resultStatistics->columnStatistics[i].columnDescriptor->rescolumnname;
+		char * columnName =
+				piggyback->resultStatistics->columnStatistics[i].columnDescriptor->rescolumnname;
 		float4 distinctValuesCount =
 				piggyback->resultStatistics->columnStatistics[i].distinct_status;
 		// own calculation
@@ -92,7 +98,8 @@ void printSingleColumnStatistics() {
 		} else if (distinctValuesCount == 0) {
 			//TODO
 		}
-		// write distinct value for fd calculation
+
+		// Write distinct values for FD calculation
 		piggyback->resultStatistics->columnStatistics[i].distinct_status = distinctValuesCount;
 
 		int minValue = piggyback->resultStatistics->columnStatistics[i].minValue;
