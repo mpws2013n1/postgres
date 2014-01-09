@@ -36,7 +36,8 @@ void printMetaData() {
 }
 
 void printFunctionalDependencies() {
-	for(int x=0;x<piggyback->numberOfAttributes;x++) {
+	int x;
+	for(x=0;x<piggyback->numberOfAttributes;x++) {
 			int content = (int) hashset_num_items(
 					piggyback->twoColumnsCombinations[x]);
 			printf("FD twoColCombination array with index %d has content %d \n",x,content);
@@ -59,13 +60,10 @@ void printFunctionalDependencies() {
 				}
 				index += (j - i - 1);
 
-				int twoColumnCombinationOfIAndJ = (int) hashset_num_items(
-						piggyback->twoColumnsCombinations[index]);
-
 				int twoColumnCombinationOfIAndJ = (int) hashset_num_items(piggyback->twoColumnsCombinations[index]);
 
 				printf("FD: column %d: distinct_count %d, column %d: distinct count %d, "
-						"col_combination distinct count: %d \n",i,distinctCountI,j,distinctCountJ,twoColumnCombinationOfIAndJ);
+						"col_combination %d distinct count: %d \n",i,distinctCountI,j,distinctCountJ,index,twoColumnCombinationOfIAndJ);
 
 			}
 		}

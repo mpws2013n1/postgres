@@ -638,12 +638,13 @@ void buildTwoColumnCombinations(char* valueToConcat, int from,TupleTableSlot *re
 }
 
 void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to,char* value){
-	printf("FD: addtoColCombArray: from: %d, valueConcat: %s, to: %d, value: %s \n", from, valueToConcat, to, value);
 	int index = 0;
 	int i;
 	for(i = 1; i<from;i++){
 		index += piggyback->numberOfAttributes-i;
 	}
+
+	printf("FD: addtoColCombArray %d: from: %d, valueConcat: %s, to: %d, value: %s \n", index, from, valueToConcat, to, value);
 
 	const size_t v1Length = strlen(valueToConcat);
 	const size_t v2Length = strlen(value);
