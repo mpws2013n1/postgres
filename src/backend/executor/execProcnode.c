@@ -643,6 +643,7 @@ void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to,char
 	for(i = 1; i<from;i++){
 		index += piggyback->numberOfAttributes-i;
 	}
+	index += to-from-1;
 
 	printf("FD: addtoColCombArray %d: from: %d, valueConcat: %s, to: %d, value: %s \n", index, from, valueToConcat, to, value);
 

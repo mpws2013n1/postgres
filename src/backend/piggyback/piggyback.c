@@ -44,18 +44,18 @@ void printFunctionalDependencies() {
 	}
 
 	int i;
-	for (i = 0; i < piggyback->numberOfAttributes; i++) {
+	for (i = 1; i <= piggyback->numberOfAttributes; i++) {
 		int j;
-		for (j = i + 1; j < piggyback->numberOfAttributes; j++) {
+		for (j = i + 1; j <= piggyback->numberOfAttributes; j++) {
 			if (j != i) {
 				int distinctCountI =
-						piggyback->resultStatistics->columnStatistics[i].distinct_status;
+						piggyback->resultStatistics->columnStatistics[i-1].distinct_status;
 				int distinctCountJ =
-						piggyback->resultStatistics->columnStatistics[j].distinct_status;
+						piggyback->resultStatistics->columnStatistics[j-1].distinct_status;
 
 				int index = 0;
 				int k;
-				for (k = 0; k < i; k++) {
+				for (k = 1; k < i; k++) {
 					index += piggyback->numberOfAttributes - k;
 				}
 				index += (j - i - 1);
