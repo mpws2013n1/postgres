@@ -645,7 +645,7 @@ void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to,char
 	}
 	index += to-from-1;
 
-	printf("FD: addtoColCombArray %d: from: %d, valueConcat: %s, to: %d, value: %s \n", index, from, valueToConcat, to, value);
+	//printf("FD: addtoColCombArray %d: from: %d, valueConcat: %s, to: %d, value: %s \n", index, from, valueToConcat, to, value);
 
 	const size_t v1Length = strlen(valueToConcat);
 	const size_t v2Length = strlen(value);
@@ -660,7 +660,7 @@ void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to,char
 	strcpy(strBuf, valueToConcat);
 	strcpy(strBuf + v1Length, value);
 
-	printf("FD: fill ColCombinationArray on index %d with content %s (Merged from %s and %s) \n",index,strBuf,valueToConcat,value);
+	//printf("FD: fill ColCombinationArray on index %d with content %s (Merged from %s and %s) \n",index,strBuf,valueToConcat,value);
 	hashset_add_string(piggyback->twoColumnsCombinations[index], strBuf);
 
 	free(strBuf);
