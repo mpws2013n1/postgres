@@ -559,6 +559,7 @@ ExecProcNode(PlanState *node) {
 					}
 					break;
 				}
+				case BPCHAROID:
 				case VARCHAROID: { // Varchar
 					if (0 == datum) {
 						continue;
@@ -572,9 +573,6 @@ ExecProcNode(PlanState *node) {
 					if (piggyback->resultStatistics->columnStatistics[i].distinct_status == -2) {
 						hashset_add_string(piggyback->distinctValues[i], value);
 					}
-					break;
-				}
-				case BPCHAROID: {
 					break;
 				}
 				default:
@@ -620,15 +618,13 @@ void buildTwoColumnCombinations(char* valueToConcat, int from,TupleTableSlot *re
 			addToTwoColumnCombinationHashSet(from, valueToConcat, i+1,cvalue);
 			break;
 		}
+		case BPCHAROID:
 		case VARCHAROID: { // Varchar
 			if (0 == datum) {
 				continue;
 			}
 			char *value = TextDatumGetCString(datum);
 			addToTwoColumnCombinationHashSet(from, valueToConcat, i+1, value);
-			break;
-		}
-		case BPCHAROID: {
 			break;
 		}
 		default:
