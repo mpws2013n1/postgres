@@ -51,7 +51,11 @@ void printFunctionalDependencies(){
 				}
 				index += (j-i-1);
 
-				int twoColumnCombinationOfIAndJ = piggyback->twoColumnsCombinations[index];
+				int twoColumnCombinationOfIAndJ = (int) hashset_num_items(piggyback->twoColumnsCombinations[index]);
+
+				printf("FD: column %d: distinct_count %d, column %d: distinct count %d, "
+						"col_combination distinct count: %d \n",i,distinctCountI,j,distinctCountJ,twoColumnCombinationOfIAndJ);
+
 			}
 		}
 	}
@@ -88,13 +92,16 @@ void printSingleColumnStatistics() {
 		} else if (distinctValuesCount == 0) {
 			//TODO
 		}
+		// write distinct value for fd calculation
+		piggyback->resultStatistics->columnStatistics[i].distinct_status = distinctValuesCount;
+
 		int minValue = piggyback->resultStatistics->columnStatistics[i].minValue;
 		int maxValue = piggyback->resultStatistics->columnStatistics[i].maxValue;
 		int isNumeric =
 				piggyback->resultStatistics->columnStatistics[i].isNumeric;
 
 		printf(
-				"column %s (%d) has %ld distinct values, %d as minimum, %d as maximum, numeric: %d \n",
+				"column %s (%d) has %d distinct values, %d as minimum, %d as maximum, numeric: %d \n",
 				columnName, i, distinctValuesCount, minValue, maxValue,
 				isNumeric);
 
