@@ -62,10 +62,11 @@ void printFunctionalDependencies() {
 				int twoColumnCombinationOfIAndJ = (int) hashset_num_items(
 						piggyback->twoColumnsCombinations[index]);
 
-				printf(
-						"FD: col1: %d, col2: %d, distinct1: %d, distinct2: %d, combination_distinct: %d \n",
-						i, j, distinctCountI, distinctCountJ,
-						twoColumnCombinationOfIAndJ);
+				int twoColumnCombinationOfIAndJ = (int) hashset_num_items(piggyback->twoColumnsCombinations[index]);
+
+				printf("FD: column %d: distinct_count %d, column %d: distinct count %d, "
+						"col_combination distinct count: %d \n",i,distinctCountI,j,distinctCountJ,twoColumnCombinationOfIAndJ);
+
 			}
 		}
 	}
