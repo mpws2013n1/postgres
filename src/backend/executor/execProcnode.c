@@ -638,6 +638,7 @@ void buildTwoColumnCombinations(char* valueToConcat, int from,TupleTableSlot *re
 }
 
 void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to,char* value){
+	printf("FD: addtoColCombArray: from: %d, valueConcat: %s, to: %d, value: %s \n", from, valueToConcat, to, value);
 	int index = 0;
 	int i;
 	for(i = 1; i<from;i++){
@@ -657,6 +658,7 @@ void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to,char
 	strcpy(strBuf, valueToConcat);
 	strcpy(strBuf + v1Length, value);
 
+	printf("FD: fill ColCombinationArray on index %d with content %s (Merged from %s and %s) \n",index,strBuf,valueToConcat,value);
 	hashset_add_string(piggyback->twoColumnsCombinations[index], strBuf);
 
 	free(strBuf);

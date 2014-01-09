@@ -36,6 +36,12 @@ void printMetaData() {
 }
 
 void printFunctionalDependencies() {
+	for(int x=0;x<piggyback->numberOfAttributes;x++) {
+			int content = (int) hashset_num_items(
+					piggyback->twoColumnsCombinations[x]);
+			printf("FD twoColCombination array with index %d has content %d \n",x,content);
+	}
+
 	int i;
 	for (i = 0; i < piggyback->numberOfAttributes; i++) {
 		int j;
