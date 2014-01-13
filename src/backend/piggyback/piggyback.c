@@ -34,11 +34,12 @@ void setPiggybackRootNode(Plan *rootNode) {
 void printMetaData() {
 	StringInfoData buf;
 	pq_beginmessage(&buf, 'X');
-	printSingleColumnStatistics(buf);
-	printFunctionalDependencies(buf);
+	printSingleColumnStatistics(&buf);
+	printFunctionalDependencies(&buf);
+	pq_endmessage(&buf);
 }
 
-void printFunctionalDependencies(StringInfoData buf) {
+void printFunctionalDependencies(StringInfoData* buf) {
 	int fdCount = 0;
 	int i;
 	for (i = 1; i <= piggyback->numberOfAttributes; i++) {
@@ -81,26 +82,27 @@ void printFunctionalDependencies(StringInfoData buf) {
 		}
 	}
 
-	pq_sendint(&buf, fdCount, 4);
+	pq_sendint(buf, fdCount, 4);
 
 	ListCell* cell;
 	foreach(cell, piggyback->resultStatistics->functionalDependencies){
 		be_PGFunctionalDependency* fd = (be_PGFunctionalDependency*)cell->data.ptr_value;
-		char fdString[255];
-		sprintf(fdString, "%s --> %s\n", fd->determinants->rescolumnname ,fd->dependent->rescolumnname );
-		pq_sendstring(&buf, fdString);
+		//char fdString[255];
+		//sprintf(fdString, "%s --> %s\n", fd->determinants->rescolumnname ,fd->dependent->rescolumnname );
+		pq_sendstring(buf, fd->determinants->rescolumnname);
+		pq_sendstring(buf, fd->dependent->rescolumnname);
 	}
 }
 
-void printSingleColumnStatistics(StringInfoData buf) {
+void printSingleColumnStatistics(StringInfoData* buf) {
 	if (!piggyback || !piggyback->distinctValues) {
-		pq_sendint(&buf, 0, 4);
-		pq_endmessage(&buf);
+		pq_sendint(buf, 0, 4);
+		pq_endmessage(buf);
 		return;
 	}
 
 	int i;
-	pq_sendint(&buf, piggyback->numberOfAttributes, 4);
+	pq_sendint(buf, piggyback->numberOfAttributes, 4);
 
 	for (i = 0; i < piggyback->numberOfAttributes; i++) {
 		char * columnName = piggyback->resultStatistics->columnStatistics[i].columnDescriptor->rescolumnname;
@@ -128,15 +130,13 @@ void printSingleColumnStatistics(StringInfoData buf) {
 		printf("column %s (%d) has %d distinct values, %d as minimum, %d as maximum, numeric: %d \n", columnName, i, distinctValuesCount, minValue, maxValue,
 				isNumeric);
 
-		pq_sendstring(&buf, columnName);
-		pq_sendint(&buf, i, 4);
-		pq_sendint(&buf, (int) distinctValuesCount, 4);
-		pq_sendint(&buf, minValue, 4);
-		pq_sendint(&buf, maxValue, 4);
-		pq_sendint(&buf, isNumeric, 4);
+		pq_sendstring(buf, columnName);
+		pq_sendint(buf, i, 4);
+		pq_sendint(buf, (int) distinctValuesCount, 4);
+		pq_sendint(buf, minValue, 4);
+		pq_sendint(buf, maxValue, 4);
+		pq_sendint(buf, isNumeric, 4);
 	}
-
-	pq_endmessage(&buf);
 }
 
 //begin stolen hashset - https://github.com/avsej/hashset.c

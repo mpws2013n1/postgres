@@ -2694,6 +2694,15 @@ printQuery(const PGresult *result, const printQueryOpt *opt, FILE *fout, FILE *f
 			printTableAddFooter(&cont, *footer);
 	}
 
+
+	for(i=0;i<result->statistics->functionalDependenciesCount;i++){
+		char fdString[255];
+		sprintf(fdString, "%s -> %s",
+				result->statistics->functionalDependencies[i].determinants->name,
+				result->statistics->functionalDependencies[i].dependent->name);
+		printTableAddFooter(&cont, fdString);
+	}
+
 	printTable(&cont, fout, flog);
 	printTableCleanup(&cont);
 }
