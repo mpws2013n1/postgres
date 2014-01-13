@@ -14,6 +14,7 @@
 #include "piggyback/piggyback.h"
 #include "miscadmin.h"
 #include <limits.h>
+#include "nodes/pg_list.h"
 
 void printIt() {
 	printf("THIS IS PRINTED");
@@ -31,11 +32,14 @@ void setPiggybackRootNode(Plan *rootNode) {
 }
 
 void printMetaData() {
-	printSingleColumnStatistics();
-	printFunctionalDependencies();
+	StringInfoData buf;
+	pq_beginmessage(&buf, 'X');
+	printSingleColumnStatistics(buf);
+	printFunctionalDependencies(buf);
 }
 
-void printFunctionalDependencies() {
+void printFunctionalDependencies(StringInfoData buf) {
+	int fdCount = 0;
 	int i;
 	for (i = 1; i <= piggyback->numberOfAttributes; i++) {
 		int j;
@@ -56,30 +60,39 @@ void printFunctionalDependencies() {
 				//printf("FD: column %d: distinct_count %d, column %d: distinct count %d, "
 				//		"col_combination %d distinct count: %d \n", i-1, distinctCountI, j-1, distinctCountJ, index, twoColumnCombinationOfIAndJ);
 
-				//be_PGAttDesc *colIDesc = piggyback->resultStatistics->columnStatistics[i].columnDescriptor;
-				//be_PGAttDesc *colJDesc = piggyback->resultStatistics->columnStatistics[j].columnDescriptor;
+				be_PGAttDesc *colIDesc = piggyback->resultStatistics->columnStatistics[i-1].columnDescriptor;
+				be_PGAttDesc *colJDesc = piggyback->resultStatistics->columnStatistics[j-1].columnDescriptor;
 
 				if (distinctCountI == twoColumnCombinationOfIAndJ) {
-					//piggyback->resultStatistics->functionalDependencies->determinants = colIDesc;
-					//piggyback->resultStatistics->functionalDependencies->dependent = colJDesc;
-					//printf("FD: col %s functionally depends on col %s \n",colJDesc->rescolumnname,colIDesc->rescolumnname);
-					printf("FD: col %d functionally depends on col %d \n",j-1,i-1);
+					be_PGFunctionalDependency* fd = calloc(1, sizeof(be_PGFunctionalDependency));
+					fd->determinants = colIDesc;
+					fd->dependent = colJDesc;
+					piggyback->resultStatistics->functionalDependencies = lappend(piggyback->resultStatistics->functionalDependencies, fd);
+					fdCount++;
 				}
 				if (distinctCountJ == twoColumnCombinationOfIAndJ) {
-					//->resultStatistics->functionalDependencies->determinants = colJDesc;
-					//piggyback->resultStatistics->functionalDependencies->dependent = colIDesc;
-					//printf("FD: col %s functionally depends on col %s \n",colIDesc->rescolumnname,colJDesc->rescolumnname);
-					printf("FD: col %d functionally depends on col %d \n",i-1,j-1);
+					be_PGFunctionalDependency* fd = calloc(1, sizeof(be_PGFunctionalDependency));
+					fd->determinants = colJDesc;
+					fd->dependent = colIDesc;
+					piggyback->resultStatistics->functionalDependencies = lappend(piggyback->resultStatistics->functionalDependencies, fd);
+					fdCount++;
 				}
 			}
 		}
 	}
+
+	pq_sendint(&buf, fdCount, 4);
+
+	ListCell* cell;
+	foreach(cell, piggyback->resultStatistics->functionalDependencies){
+		be_PGFunctionalDependency* fd = (be_PGFunctionalDependency*)cell->data.ptr_value;
+		char fdString[255];
+		sprintf(fdString, "%s --> %s\n", fd->determinants->rescolumnname ,fd->dependent->rescolumnname );
+		pq_sendstring(&buf, fdString);
+	}
 }
 
-void printSingleColumnStatistics() {
-	StringInfoData buf;
-	pq_beginmessage(&buf, 'X');
-
+void printSingleColumnStatistics(StringInfoData buf) {
 	if (!piggyback || !piggyback->distinctValues) {
 		pq_sendint(&buf, 0, 4);
 		pq_endmessage(&buf);
