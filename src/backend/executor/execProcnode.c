@@ -559,6 +559,7 @@ ExecProcNode(PlanState *node) {
 					}
 					break;
 				}
+				case BPCHAROID:
 				case VARCHAROID: { // Varchar
 					if (0 == datum) {
 						continue;
@@ -572,9 +573,6 @@ ExecProcNode(PlanState *node) {
 					if (piggyback->resultStatistics->columnStatistics[i].distinct_status == -2) {
 						hashset_add_string(piggyback->distinctValues[i], value);
 					}
-					break;
-				}
-				case BPCHAROID: {
 					break;
 				}
 				default:
@@ -620,15 +618,13 @@ void buildTwoColumnCombinations(char* valueToConcat, int from,TupleTableSlot *re
 			addToTwoColumnCombinationHashSet(from, valueToConcat, i+1,cvalue);
 			break;
 		}
+		case BPCHAROID:
 		case VARCHAROID: { // Varchar
 			if (0 == datum) {
 				continue;
 			}
 			char *value = TextDatumGetCString(datum);
 			addToTwoColumnCombinationHashSet(from, valueToConcat, i+1, value);
-			break;
-		}
-		case BPCHAROID: {
 			break;
 		}
 		default:
@@ -643,6 +639,9 @@ void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to,char
 	for(i = 1; i<from;i++){
 		index += piggyback->numberOfAttributes-i;
 	}
+	index += to-from-1;
+
+	//printf("FD: addtoColCombArray %d: from: %d, valueConcat: %s, to: %d, value: %s \n", index, from, valueToConcat, to, value);
 
 	const size_t v1Length = strlen(valueToConcat);
 	const size_t v2Length = strlen(value);
@@ -657,6 +656,7 @@ void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to,char
 	strcpy(strBuf, valueToConcat);
 	strcpy(strBuf + v1Length, value);
 
+	//printf("FD: fill ColCombinationArray on index %d with content %s (Merged from %s and %s) \n",index,strBuf,valueToConcat,value);
 	hashset_add_string(piggyback->twoColumnsCombinations[index], strBuf);
 
 	free(strBuf);

@@ -35,23 +35,42 @@ void printMetaData() {
 	printFunctionalDependencies();
 }
 
-void printFunctionalDependencies(){
+void printFunctionalDependencies() {
 	int i;
-	for(i=0;i<piggyback->numberOfAttributes; i++){
+	for (i = 1; i <= piggyback->numberOfAttributes; i++) {
 		int j;
-		for(j=i+1; j<piggyback->numberOfAttributes; j++){
-			if(j!=i){
-				int distinctCountI = piggyback->resultStatistics->columnStatistics[i].distinct_status;
-				int distinctCountJ = piggyback->resultStatistics->columnStatistics[j].distinct_status;
+		for (j = i + 1; j <= piggyback->numberOfAttributes; j++) {
+			if (j != i) {
+				int distinctCountI = piggyback->resultStatistics->columnStatistics[i-1].distinct_status;
+				int distinctCountJ = piggyback->resultStatistics->columnStatistics[j-1].distinct_status;
 
 				int index = 0;
 				int k;
-				for (k = 0; k < i; k++) {
+				for (k = 1; k < i; k++) {
 					index += piggyback->numberOfAttributes - k;
 				}
-				index += (j-i-1);
+				index += (j - i - 1);
 
-				int twoColumnCombinationOfIAndJ = piggyback->twoColumnsCombinations[index];
+				int twoColumnCombinationOfIAndJ = (int) hashset_num_items(piggyback->twoColumnsCombinations[index]);
+
+				//printf("FD: column %d: distinct_count %d, column %d: distinct count %d, "
+				//		"col_combination %d distinct count: %d \n", i-1, distinctCountI, j-1, distinctCountJ, index, twoColumnCombinationOfIAndJ);
+
+				//be_PGAttDesc *colIDesc = piggyback->resultStatistics->columnStatistics[i].columnDescriptor;
+				//be_PGAttDesc *colJDesc = piggyback->resultStatistics->columnStatistics[j].columnDescriptor;
+
+				if (distinctCountI == twoColumnCombinationOfIAndJ) {
+					//piggyback->resultStatistics->functionalDependencies->determinants = colIDesc;
+					//piggyback->resultStatistics->functionalDependencies->dependent = colJDesc;
+					//printf("FD: col %s functionally depends on col %s \n",colJDesc->rescolumnname,colIDesc->rescolumnname);
+					printf("FD: col %d functionally depends on col %d \n",j-1,i-1);
+				}
+				if (distinctCountJ == twoColumnCombinationOfIAndJ) {
+					//->resultStatistics->functionalDependencies->determinants = colJDesc;
+					//piggyback->resultStatistics->functionalDependencies->dependent = colIDesc;
+					//printf("FD: col %s functionally depends on col %s \n",colIDesc->rescolumnname,colJDesc->rescolumnname);
+					printf("FD: col %d functionally depends on col %d \n",i-1,j-1);
+				}
 			}
 		}
 	}
@@ -72,30 +91,28 @@ void printSingleColumnStatistics() {
 
 	for (i = 0; i < piggyback->numberOfAttributes; i++) {
 		char * columnName = piggyback->resultStatistics->columnStatistics[i].columnDescriptor->rescolumnname;
-		float4 distinctValuesCount =
-				piggyback->resultStatistics->columnStatistics[i].distinct_status;
+		float4 distinctValuesCount = piggyback->resultStatistics->columnStatistics[i].distinct_status;
 		// own calculation
 		if (distinctValuesCount == -2) {
-			distinctValuesCount = (float4) hashset_num_items(
-					piggyback->distinctValues[i]);
+			distinctValuesCount = (float4) hashset_num_items(piggyback->distinctValues[i]);
 			// unique
 		} else if (distinctValuesCount == -1) {
 			distinctValuesCount = piggyback->numberOfTuples;
 			// base stats
 		} else if (distinctValuesCount > -1 && distinctValuesCount < 0) {
-			distinctValuesCount = piggyback->numberOfTuples
-					* distinctValuesCount * -1;
+			distinctValuesCount = piggyback->numberOfTuples * distinctValuesCount * -1;
 		} else if (distinctValuesCount == 0) {
 			//TODO
 		}
+
+		// Write distinct values for FD calculation
+		piggyback->resultStatistics->columnStatistics[i].distinct_status = distinctValuesCount;
+
 		int minValue = piggyback->resultStatistics->columnStatistics[i].minValue;
 		int maxValue = piggyback->resultStatistics->columnStatistics[i].maxValue;
-		int isNumeric =
-				piggyback->resultStatistics->columnStatistics[i].isNumeric;
+		int isNumeric = piggyback->resultStatistics->columnStatistics[i].isNumeric;
 
-		printf(
-				"column %s (%d) has %ld distinct values, %d as minimum, %d as maximum, numeric: %d \n",
-				columnName, i, distinctValuesCount, minValue, maxValue,
+		printf("column %s (%d) has %d distinct values, %d as minimum, %d as maximum, numeric: %d \n", columnName, i, distinctValuesCount, minValue, maxValue,
 				isNumeric);
 
 		pq_sendstring(&buf, columnName);
