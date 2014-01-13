@@ -518,22 +518,21 @@ ExecProcNode(PlanState *node) {
 	 * Process with piggyback if current node is root node.
 	 */
 	if (piggyback != NULL) {
-		if (node->plan == piggyback->root && result
+		if (node->plan == piggyback->root && result && !result->tts_isempty
 				&& result->tts_tupleDescriptor) {
 			piggyback->numberOfAttributes = result->tts_tupleDescriptor->natts;
 			Form_pg_attribute *attrList = result->tts_tupleDescriptor->attrs;
 
-			Datum* datumList = result->tts_values;
 			Datum datum;
+			bool *isNull = malloc(sizeof(bool));
 
 			int i = 0;
 			for (i = 0; i < piggyback->numberOfAttributes; i++) {
-				datum = datumList[i];
-				if (result->tts_isnull[i]) {
+				datum = slot_getattr(result, i+1, isNull);
+				if (isNull) {
 					continue;
 				}
 				Form_pg_attribute attr = attrList[i];
-				char *name = attr->attname.data;
 
 				// Use data type aware conversion.
 				switch (attr->atttypid) {
@@ -561,10 +560,6 @@ ExecProcNode(PlanState *node) {
 				}
 				case BPCHAROID:
 				case VARCHAROID: { // Varchar
-					if (0 == datum) {
-						continue;
-					}
-
 					char *value = TextDatumGetCString(datum);
 
 					buildTwoColumnCombinations(value, i+1, result);

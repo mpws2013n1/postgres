@@ -942,6 +942,7 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 		//This will set xxxIsFinal flags to false automatically because of 0-initialized memory
 		piggyback->resultStatistics->columnStatistics = calloc(piggyback->numberOfAttributes,
 				sizeof(be_PGColumnStatistic));
+		piggyback->resultStatistics->functionalDependencies = NIL;
 		}
 
 	/*
@@ -978,6 +979,7 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 			piggyback->resultStatistics->columnStatistics[i].isNumeric = NULL;
 
 			int useDistinctStatsFromBaseStats = !nodeHasFilter(planstate);
+			useDistinctStatsFromBaseStats = 0;
 			if (useDistinctStatsFromBaseStats == 1) {
 				unsigned int relOid = tle->resorigtbl;
 				int attnum = get_attnum(relOid, name);
