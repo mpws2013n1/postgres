@@ -971,15 +971,9 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 
 			//initialize distinct count with -2 to signal that nothing was gathered from basestats
 
-			if (!piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal)
-				piggyback->resultStatistics->columnStatistics[i].distinct_status = -2;
-			if (!piggyback->resultStatistics->columnStatistics[i].minValueIsFinal)
-				piggyback->resultStatistics->columnStatistics[i].minValue = INT_MAX;
-			if (!piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal)
-				piggyback->resultStatistics->columnStatistics[i].maxValue = NULL;
-//			piggyback->resultStatistics->columnStatistics[i].distinct_status = -2;
-//			piggyback->resultStatistics->columnStatistics[i].minValue = INT_MAX;
-//			piggyback->resultStatistics->columnStatistics[i].maxValue = NULL;
+			piggyback->resultStatistics->columnStatistics[i].distinct_status = -2;
+			piggyback->resultStatistics->columnStatistics[i].minValue = INT_MAX;
+			piggyback->resultStatistics->columnStatistics[i].maxValue = INT_MIN;
 			piggyback->resultStatistics->columnStatistics[i].isNumeric = NULL;
 			i++;
 		}

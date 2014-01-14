@@ -203,6 +203,7 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 		if (result->qual) {
 			int opno = ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->opno;
 			// eventually we want to add opno == 533 (also integer equality according to src/include/catalog/pg_operator.h line 299
+			// TODO: support more integer equalities
 			if(opno == 94 || opno == 96 || opno == 410 || opno == 416) { // it is a equality like number_of_tracks = 3
 				be_PGAttDesc *columnData = (be_PGAttDesc*) malloc(sizeof(be_PGAttDesc));
 				int numberOfAttributes = result->plan->targetlist->length;
@@ -219,10 +220,9 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 
 				columnData->srccolumnid = columnId;
 				//columnData->columnid = columnId;
-				columnData->typid = 20; // TODO: passend zu opno machen
 
-				//int one = 1;
-				// TODO: use correct columnStatistics instead of the first
+				// we always set the type to 8byte-integer because we don't need a detailed differentiation
+				columnData->typid = 20;
 
 				// TODO: write this in a method that returns i for better readability
 				int i = 0;
@@ -237,10 +237,10 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 				{
 					piggyback->resultStatistics->columnStatistics[i].columnDescriptor = columnData;
 					piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
-					piggyback->resultStatistics->columnStatistics[i].maxValue = minAndMaxAndAvg;
-					piggyback->resultStatistics->columnStatistics[i].minValue = minAndMaxAndAvg;
-					piggyback->resultStatistics->columnStatistics[i].mostFrequentValue = minAndMaxAndAvg;
-					piggyback->resultStatistics->columnStatistics[i].distinct_status = -1;
+					piggyback->resultStatistics->columnStatistics[i].maxValue = *minAndMaxAndAvg;
+					piggyback->resultStatistics->columnStatistics[i].minValue = *minAndMaxAndAvg;
+					piggyback->resultStatistics->columnStatistics[i].mostFrequentValue = *minAndMaxAndAvg;
+					piggyback->resultStatistics->columnStatistics[i].distinct_status = 1;
 
 					// the meta data for this column ist complete and should not be calculated again
 					piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = 1;
@@ -605,8 +605,9 @@ ExecProcNode(PlanState *node) {
 						if (value > piggyback->resultStatistics->columnStatistics[i].maxValue
 								|| piggyback->resultStatistics->columnStatistics[i].maxValue == INT_MIN)
 							piggyback->resultStatistics->columnStatistics[i].maxValue = value;
-					if (piggyback->resultStatistics->columnStatistics[i].isNumeric == -2) {
+					if (piggyback->resultStatistics->columnStatistics[i].distinct_status == -2) {
 						hashset_add_numeric(piggyback->distinctValues[i], value);
+						printf("hashset_add_numeric\n");
 					}
 					break;
 				}
