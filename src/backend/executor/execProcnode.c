@@ -607,7 +607,6 @@ ExecProcNode(PlanState *node) {
 							piggyback->resultStatistics->columnStatistics[i].maxValue = value;
 					if (piggyback->resultStatistics->columnStatistics[i].distinct_status == -2) {
 						hashset_add_numeric(piggyback->distinctValues[i], value);
-						printf("hashset_add_numeric\n");
 					}
 					break;
 				}
