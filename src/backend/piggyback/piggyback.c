@@ -49,6 +49,11 @@ void printFunctionalDependencies(StringInfoData* buf) {
 				int distinctCountI = piggyback->resultStatistics->columnStatistics[i-1].distinct_status;
 				int distinctCountJ = piggyback->resultStatistics->columnStatistics[j-1].distinct_status;
 
+				// Skip if distinct count of one col equal zero, e.g. col attribute type not supported
+				if(distinctCountI * distinctCountJ == 0) {
+					continue;
+				}
+
 				int index = 0;
 				int k;
 				for (k = 1; k < i; k++) {
@@ -243,7 +248,7 @@ int hashset_add_string(hashset_t set, char* string) {
 	return rv;
 }
 
-int hashset_add_numeric(hashset_t set, void *item) {
+int hashset_add_integer(hashset_t set, void *item) {
 	int rv = hashset_add_member(set, item);
 	maybe_rehash(set);
 	return rv;

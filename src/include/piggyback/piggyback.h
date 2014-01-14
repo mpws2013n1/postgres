@@ -71,7 +71,6 @@ typedef struct _piggyback {
 	hashset_t **twoColumnsCombinations;
 	// temporary save values for each column of a slot
 	char **slotValues;
-	bool newProcessing;
 	int numberOfAttributes;
 	int numberOfTuples;
 } Piggyback;

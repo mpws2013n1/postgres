@@ -125,8 +125,8 @@
 #include <limits.h>
 
 extern Piggyback *piggyback;
-void buildTwoColumnCombinations(char* valueToConcat, int from,TupleTableSlot *result);
-void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to,char* value);
+void buildTwoColumnCombinations(char* valueToConcat, int from, TupleTableSlot *result);
+void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to, char* value);
 
 /* ------------------------------------------------------------------------
  *		ExecInitNode
@@ -199,10 +199,14 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 				eflags);
 
 		if (result->qual) {
-			int opno = ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->opno;
-			if(opno == 94 || opno == 96 || opno == 410) {
-				printf("Column %d has ", ((Var*) ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->args->head->data.ptr_value)->varattno);
-				printf("Min, Max, Avg: %d\n", ((Const*) ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->args->tail->data.ptr_value)->constvalue);
+			int opno =
+					((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->opno;
+			if (opno == 94 || opno == 96 || opno == 410) {
+				printf("Column %d has ",
+						((Var*) ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->args->head->data.ptr_value)->varattno);
+				printf("Min, Max, Avg: %d\n",
+						((Const*) ((OpExpr*) ((ExprState*) linitial(
+								result->qual))->expr)->args->tail->data.ptr_value)->constvalue);
 			}
 		}
 		break;
@@ -518,8 +522,7 @@ ExecProcNode(PlanState *node) {
 	 * Process with piggyback if current node is root node.
 	 */
 	if (piggyback != NULL) {
-		if (node->plan == piggyback->root && result && !result->tts_isempty
-				&& result->tts_tupleDescriptor) {
+		if (node->plan == piggyback->root && result && !result->tts_isempty && result->tts_tupleDescriptor) {
 			piggyback->numberOfAttributes = result->tts_tupleDescriptor->natts;
 			Form_pg_attribute *attrList = result->tts_tupleDescriptor->attrs;
 
@@ -527,11 +530,11 @@ ExecProcNode(PlanState *node) {
 			bool isNull;
 
 			// fetch all data
-			//slot_getallattrs(result);
+			slot_getallattrs(result);
 
 			int i;
 			for (i = 0; i < piggyback->numberOfAttributes; i++) {
-				datum = slot_getattr(result, i+1, &isNull);
+				datum = slot_getattr(result, i + 1, &isNull);
 				if (isNull) {
 					continue;
 				}
@@ -544,45 +547,10 @@ ExecProcNode(PlanState *node) {
 				case INT2VECTOROID:
 				case INT4OID: { // Int
 					piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
-					int value = (int)(datum);
-					char* cvalue = calloc(20,sizeof(char));
+					int value = (int) (datum);
+					char* cvalue = calloc(20, sizeof(char));
 					sprintf(cvalue, "%d", value);
 					piggyback->slotValues[i] = cvalue;
-//					 = cvalue;
-					break;
-				}
-				case BPCHAROID:
-				case VARCHAROID: { // Varchar
-					piggyback->slotValues[i] = TextDatumGetCString(datum);
-					break;
-				}
-				default:
-					break;
-				}
-				//piggyback->slotValues[i] = "foo";
-			}
-			for (i = 0; i < piggyback->numberOfAttributes; i++) {
-				printf("%d: %s\n", i, piggyback->slotValues[i]);
-			}
-			for (i = 0; i < piggyback->numberOfAttributes; i++) {
-				datum = slot_getattr(result, i+1, &isNull);
-				if (isNull) {
-					continue;
-				}
-				Form_pg_attribute attr = attrList[i];
-
-				// Use data type aware conversion.
-				switch (attr->atttypid) {
-				case INT8OID:
-				case INT2OID:
-				case INT2VECTOROID:
-				case INT4OID: { // Int
-					piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
-					int value = (int)(datum);
-
-					char cvalue[20];
-					sprintf(cvalue, "%d", value);
-					buildTwoColumnCombinations(cvalue, i+1, result);
 
 					if (value < piggyback->resultStatistics->columnStatistics[i].minValue
 							|| piggyback->resultStatistics->columnStatistics[i].minValue == INT_MAX)
@@ -591,20 +559,27 @@ ExecProcNode(PlanState *node) {
 							|| piggyback->resultStatistics->columnStatistics[i].maxValue == INT_MIN)
 						piggyback->resultStatistics->columnStatistics[i].maxValue = value;
 					if (piggyback->resultStatistics->columnStatistics[i].distinct_status == -2) {
-						hashset_add_numeric(piggyback->distinctValues[i], value);
+						hashset_add_integer(piggyback->distinctValues[i], value);
 					}
+					break;
+				}
+				case NUMERICOID: { // Decimal
+					//piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
+					int value = (float) (datum);
+					//printf("Numeric: %f, casted: %d \n",(float)(datum),value);
+					char* cvalue = calloc(20, sizeof(char));
+					sprintf(cvalue, "%d", value);
+					piggyback->slotValues[i] = cvalue;
+
 					break;
 				}
 				case BPCHAROID:
 				case VARCHAROID: { // Varchar
-					char *value = TextDatumGetCString(datum);
-					value = piggyback->slotValues[i];
-
-					buildTwoColumnCombinations(value, i+1, result);
+					piggyback->slotValues[i] = TextDatumGetCString(datum);
 
 					piggyback->resultStatistics->columnStatistics[i].isNumeric = 0;
 					if (piggyback->resultStatistics->columnStatistics[i].distinct_status == -2) {
-						hashset_add_string(piggyback->distinctValues[i], value);
+						hashset_add_string(piggyback->distinctValues[i], piggyback->slotValues[i]);
 					}
 					break;
 				}
@@ -612,7 +587,9 @@ ExecProcNode(PlanState *node) {
 					break;
 				}
 			}
-			piggyback->newProcessing = false;
+			for (i = 0; i < piggyback->numberOfAttributes; i++) {
+				buildTwoColumnCombinations(piggyback->slotValues[i], i + 1, result);
+			}
 		}
 	}
 
@@ -622,54 +599,24 @@ ExecProcNode(PlanState *node) {
 	return result;
 }
 
-void buildTwoColumnCombinations(char* valueToConcat, int from,TupleTableSlot *result) {
-	if(from==piggyback->numberOfAttributes){
+void buildTwoColumnCombinations(char* valueToConcat, int from, TupleTableSlot *result) {
+	int i;
+	if (from == piggyback->numberOfAttributes) {
 		return;
 	}
-	Form_pg_attribute *attrList = result->tts_tupleDescriptor->attrs;
-	Datum datum;
-	bool isNull;
 
-	int i;
 	for (i = from; i < piggyback->numberOfAttributes; i++) {
-		datum = slot_getattr(result, i+1, &isNull);
-		if (isNull) {
-			continue;
-		}
-
-		Form_pg_attribute attr = attrList[i];
-		// Use data type aware conversion.
-		switch (attr->atttypid) {
-		case INT8OID:
-		case INT2OID:
-		case INT2VECTOROID:
-		case INT4OID: { // Int
-
-			int value = (int) (datum);
-			char* cvalue[20];
-			sprintf(cvalue, "%d", value);
-			addToTwoColumnCombinationHashSet(from, valueToConcat, i+1,cvalue);
-			break;
-		}
-		case BPCHAROID:
-		case VARCHAROID: { // Varchar
-			char *value = TextDatumGetCString(datum);
-			addToTwoColumnCombinationHashSet(from, valueToConcat, i+1, value);
-			break;
-		}
-		default:
-			break;
-		}
+		addToTwoColumnCombinationHashSet(from, valueToConcat, i + 1, piggyback->slotValues[i]);
 	}
 }
 
-void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to,char* value){
+void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to, char* value) {
 	int index = 0;
 	int i;
-	for(i = 1; i<from;i++){
-		index += piggyback->numberOfAttributes-i;
+	for (i = 1; i < from; i++) {
+		index += piggyback->numberOfAttributes - i;
 	}
-	index += to-from-1;
+	index += to - from - 1;
 
 	//printf("FD: addtoColCombArray %d: from: %d, valueConcat: %s, to: %d, value: %s \n", index, from, valueToConcat, to, value);
 
@@ -689,7 +636,7 @@ void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to,char
 	//printf("FD: fill ColCombinationArray on index %d with content %s (Merged from %s and %s) \n",index,strBuf,valueToConcat,value);
 	hashset_add_string(piggyback->twoColumnsCombinations[index], strBuf);
 
-	free(strBuf);
+	//free(strBuf);
 }
 
 /* ----------------------------------------------------------------
