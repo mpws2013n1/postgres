@@ -947,13 +947,12 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 	 * tree.  This opens files, allocates storage and leaves us ready to start
 	 * processing tuples.
 	 */
-	planstate = ExecInitNode(plan, estate, eflags);
 
-	if (planstate->plan->targetlist != NULL) {
+	if (plan->targetlist != NULL) {
 		// Create a hash table for one column each.
 		ListCell *tlist;
 		int i = 0;
-		foreach(tlist, planstate->plan->targetlist)
+		foreach(tlist, plan->targetlist)
 		{
 			TargetEntry *tle = (TargetEntry *) lfirst(tlist);
 			char *name = tle->resname;
@@ -963,7 +962,7 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 			attDesc->srctableid = tle->resorigtbl;
 			attDesc->srccolumnid = tle->resorigcol;
 			attDesc->rescolumnid = tle->resno;
-			attDesc->rescolumnname = name;
+			//attDesc->rescolumnname = name; // TODO: this seems to be written in ExecInitNode
 			piggyback->resultStatistics->columnStatistics[i].columnDescriptor = attDesc;
 
 			// Create a hash table for one column each.
@@ -981,7 +980,24 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 //			piggyback->resultStatistics->columnStatistics[i].minValue = INT_MAX;
 //			piggyback->resultStatistics->columnStatistics[i].maxValue = NULL;
 			piggyback->resultStatistics->columnStatistics[i].isNumeric = NULL;
+			i++;
+		}
+	}
 
+	// ExecInitNode needs existing piggyback->resultStatistics->columnStatistics for all result columns
+	planstate = ExecInitNode(plan, estate, eflags);
+
+	if (plan->targetlist != NULL) {
+		// Create a hash table for one column each.
+		ListCell *tlist;
+		int i = 0;
+		foreach(tlist, plan->targetlist)
+		{
+			TargetEntry *tle = (TargetEntry *) lfirst(tlist);
+			char *name = tle->resname;
+
+			// the name seems to be written inside of ExecInitNode
+			piggyback->resultStatistics->columnStatistics[i].columnDescriptor->rescolumnname = name;
 			int useDistinctStatsFromBaseStats = !nodeHasFilter(planstate);
 			if (useDistinctStatsFromBaseStats == 1) {
 				unsigned int relOid = tle->resorigtbl;
@@ -999,6 +1015,7 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 			}
 			i++;
 		}
+
 
 		if (piggyback->root == NULL) {
 			setPiggybackRootNode(plan);
