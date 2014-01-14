@@ -526,7 +526,44 @@ ExecProcNode(PlanState *node) {
 			Datum datum;
 			bool isNull;
 
-			int i = 0;
+			// fetch all data
+			//slot_getallattrs(result);
+
+			int i;
+			for (i = 0; i < piggyback->numberOfAttributes; i++) {
+				datum = slot_getattr(result, i+1, &isNull);
+				if (isNull) {
+					continue;
+				}
+
+				// Use data type aware conversion.
+				Form_pg_attribute attr = attrList[i];
+				switch (attr->atttypid) {
+				case INT8OID:
+				case INT2OID:
+				case INT2VECTOROID:
+				case INT4OID: { // Int
+					piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
+					int value = (int)(datum);
+					char* cvalue = calloc(20,sizeof(char));
+					sprintf(cvalue, "%d", value);
+					piggyback->slotValues[i] = cvalue;
+//					 = cvalue;
+					break;
+				}
+				case BPCHAROID:
+				case VARCHAROID: { // Varchar
+					piggyback->slotValues[i] = TextDatumGetCString(datum);
+					break;
+				}
+				default:
+					break;
+				}
+				//piggyback->slotValues[i] = "foo";
+			}
+			for (i = 0; i < piggyback->numberOfAttributes; i++) {
+				printf("%d: %s\n", i, piggyback->slotValues[i]);
+			}
 			for (i = 0; i < piggyback->numberOfAttributes; i++) {
 				datum = slot_getattr(result, i+1, &isNull);
 				if (isNull) {
@@ -543,7 +580,7 @@ ExecProcNode(PlanState *node) {
 					piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
 					int value = (int)(datum);
 
-					char* cvalue[20];
+					char cvalue[20];
 					sprintf(cvalue, "%d", value);
 					buildTwoColumnCombinations(cvalue, i+1, result);
 
@@ -561,6 +598,7 @@ ExecProcNode(PlanState *node) {
 				case BPCHAROID:
 				case VARCHAROID: { // Varchar
 					char *value = TextDatumGetCString(datum);
+					value = piggyback->slotValues[i];
 
 					buildTwoColumnCombinations(value, i+1, result);
 

@@ -923,6 +923,7 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 		piggyback = (Piggyback*) (malloc(sizeof(Piggyback)));
 		piggyback->root = NULL;
 		piggyback->numberOfAttributes = plan->targetlist->length;
+		piggyback->slotValues = (char**)malloc(piggyback->numberOfAttributes * sizeof(char*));
 
 		piggyback->distinctValues = calloc(piggyback->numberOfAttributes,
 				sizeof(hashset_t*));
