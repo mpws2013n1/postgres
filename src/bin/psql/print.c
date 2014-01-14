@@ -2600,6 +2600,16 @@ printQuery(const PGresult *result, const printQueryOpt *opt, FILE *fout, FILE *f
 	Assert(opt->translate_columns == NULL ||
 		   opt->n_translate_columns >= cont.ncolumns);
 
+	printf("functional dependencies of the query result: \n");
+	for(i=0;i<result->statistics->functionalDependenciesCount;i++){
+		char fdString[255];
+		sprintf(fdString, "%s -> %s",
+				result->statistics->functionalDependencies[i].determinants->name,
+				result->statistics->functionalDependencies[i].dependent->name);
+		 printf("%s\n", fdString);
+	}
+	printf("\n\n");
+
 	for (i = 0; i < cont.ncolumns; i++)
 	{
 		char *header;

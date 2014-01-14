@@ -43,6 +43,7 @@ typedef struct fe_PGStatistics {
 	fe_PGColumnStatistic *columnStatistics;
 	fe_PGUniqueColumnCombination *uniqueColumnCombinations;
 	fe_PGFunctionalDependency *functionalDependencies;
+	int functionalDependenciesCount;
 } fe_PGStatistics;
 
 #endif   /* LIBPQ_PIGGYBACK_H */

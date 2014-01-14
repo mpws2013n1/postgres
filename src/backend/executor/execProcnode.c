@@ -567,22 +567,21 @@ ExecProcNode(PlanState *node) {
 	 * Process with piggyback if current node is root node.
 	 */
 	if (piggyback != NULL) {
-		if (node->plan == piggyback->root && result
+		if (node->plan == piggyback->root && result && !result->tts_isempty
 				&& result->tts_tupleDescriptor) {
 			piggyback->numberOfAttributes = result->tts_tupleDescriptor->natts;
 			Form_pg_attribute *attrList = result->tts_tupleDescriptor->attrs;
 
-			Datum* datumList = result->tts_values;
 			Datum datum;
+			bool isNull;
 
 			int i = 0;
 			for (i = 0; i < piggyback->numberOfAttributes; i++) {
-				datum = datumList[i];
-				if (result->tts_isnull[i]) {
+				datum = slot_getattr(result, i+1, &isNull);
+				if (isNull) {
 					continue;
 				}
 				Form_pg_attribute attr = attrList[i];
-				char *name = attr->attname.data;
 
 				// Use data type aware conversion.
 
@@ -604,18 +603,15 @@ ExecProcNode(PlanState *node) {
 							piggyback->resultStatistics->columnStatistics[i].minValue = value;
 					if (!piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal)
 						if (value > piggyback->resultStatistics->columnStatistics[i].maxValue
-								|| piggyback->resultStatistics->columnStatistics[i].maxValue == NULL)
+								|| piggyback->resultStatistics->columnStatistics[i].maxValue == INT_MIN)
 							piggyback->resultStatistics->columnStatistics[i].maxValue = value;
 					if (piggyback->resultStatistics->columnStatistics[i].isNumeric == -2) {
 						hashset_add_numeric(piggyback->distinctValues[i], value);
 					}
 					break;
 				}
+				case BPCHAROID:
 				case VARCHAROID: { // Varchar
-					if (0 == datum) {
-						continue;
-					}
-
 					char *value = TextDatumGetCString(datum);
 
 					buildTwoColumnCombinations(value, i+1, result);
@@ -624,9 +620,6 @@ ExecProcNode(PlanState *node) {
 					if (piggyback->resultStatistics->columnStatistics[i].distinct_status == -2) {
 						hashset_add_string(piggyback->distinctValues[i], value);
 					}
-					break;
-				}
-				case BPCHAROID: {
 					break;
 				}
 				default:
@@ -648,15 +641,15 @@ void buildTwoColumnCombinations(char* valueToConcat, int from,TupleTableSlot *re
 		return;
 	}
 	Form_pg_attribute *attrList = result->tts_tupleDescriptor->attrs;
-	Datum* datumList = result->tts_values;
 	Datum datum;
+	bool isNull;
 
 	int i;
 	for (i = from; i < piggyback->numberOfAttributes; i++) {
-		if (result->tts_isnull[i]) {
+		datum = slot_getattr(result, i+1, &isNull);
+		if (isNull) {
 			continue;
 		}
-		datum = datumList[i];
 
 		Form_pg_attribute attr = attrList[i];
 		// Use data type aware conversion.
@@ -672,15 +665,10 @@ void buildTwoColumnCombinations(char* valueToConcat, int from,TupleTableSlot *re
 			addToTwoColumnCombinationHashSet(from, valueToConcat, i+1,cvalue);
 			break;
 		}
+		case BPCHAROID:
 		case VARCHAROID: { // Varchar
-			if (0 == datum) {
-				continue;
-			}
 			char *value = TextDatumGetCString(datum);
 			addToTwoColumnCombinationHashSet(from, valueToConcat, i+1, value);
-			break;
-		}
-		case BPCHAROID: {
 			break;
 		}
 		default:
@@ -695,6 +683,9 @@ void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to,char
 	for(i = 1; i<from;i++){
 		index += piggyback->numberOfAttributes-i;
 	}
+	index += to-from-1;
+
+	//printf("FD: addtoColCombArray %d: from: %d, valueConcat: %s, to: %d, value: %s \n", index, from, valueToConcat, to, value);
 
 	const size_t v1Length = strlen(valueToConcat);
 	const size_t v2Length = strlen(value);
@@ -709,6 +700,7 @@ void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to,char
 	strcpy(strBuf, valueToConcat);
 	strcpy(strBuf + v1Length, value);
 
+	//printf("FD: fill ColCombinationArray on index %d with content %s (Merged from %s and %s) \n",index,strBuf,valueToConcat,value);
 	hashset_add_string(piggyback->twoColumnsCombinations[index], strBuf);
 
 	free(strBuf);

@@ -34,6 +34,8 @@
 #include <arpa/inet.h>
 #endif
 
+#include "nodes/pg_list.h"
+
 
 /*
  * This macro lists the backend message types that could be "long" (more
@@ -206,7 +208,7 @@ pqParseInput3(PGconn *conn)
 
 			switch (id)
 			{
-				case 'X':
+				case 'X':{
 					pqGetInt(&numberOfColumns, 4, conn);
 					statistics = (fe_PGStatistics*)(malloc(sizeof(fe_PGStatistics)));
 					statistics->columnStatistics = (fe_PGColumnStatistic*)(calloc(numberOfColumns, sizeof(fe_PGColumnStatistic)));
@@ -215,23 +217,43 @@ pqParseInput3(PGconn *conn)
 						pqGets(&conn->workBuffer, conn);
 						statistics->columnStatistics[i].columnDescriptor->name = malloc(strlen(conn->workBuffer.data)+1);
 						strcpy(statistics->columnStatistics[i].columnDescriptor->name, conn->workBuffer.data);
-						//printf("Column %s", conn->workBuffer.data);
 						pqGetInt(&columnid, 4, conn);
 						statistics->columnStatistics[i].columnDescriptor->columnid = columnid;
-						//printf(" (%d)", columnid);
 						pqGetInt(&n_distinct, 4, conn);
 						statistics->columnStatistics[i].n_distinct = n_distinct;
-						//printf(" has %d distinct values.\n", n_distinct);
 						pqGetInt(&minValue, 4, conn);
 						statistics->columnStatistics[i].minValue = minValue;
-						//printf(" has %d as minimum.\n", minValue);
 						pqGetInt(&maxValue, 4, conn);
 						statistics->columnStatistics[i].maxValue = maxValue;
-						//printf(" has %d as maximum.\n", maxValue);
 						pqGetInt(&isNumeric, 4, conn);
 						statistics->columnStatistics[i].isNumeric = isNumeric;
-						//printf(" numeric : %d.\n", isNumeric);
 					}
+
+
+					pqGetInt(&statistics->functionalDependenciesCount, 4, conn);
+					statistics->functionalDependencies = calloc(statistics->functionalDependenciesCount,
+							sizeof(fe_PGFunctionalDependency));
+					for (i = 0; i < statistics->functionalDependenciesCount; i++) {
+						fe_PGFunctionalDependency* fd = calloc(1,
+								sizeof(fe_PGFunctionalDependency));
+
+						fd->determinants = calloc(1, sizeof(fe_PGAttDesc));
+						pqGets(&conn->workBuffer, conn);
+						fd->determinants->name = malloc(
+								strlen(conn->workBuffer.data) + 1);
+						strcpy(fd->determinants->name, conn->workBuffer.data);
+
+						fd->dependent = calloc(1, sizeof(fe_PGAttDesc));
+						pqGets(&conn->workBuffer, conn);
+						fd->dependent->name = malloc(
+								strlen(conn->workBuffer.data) + 1);
+						strcpy(fd->dependent->name, conn->workBuffer.data);
+
+						statistics->functionalDependencies[i] = *fd;
+					}
+				}
+
+
 					conn->result->statistics = statistics;
 					break;
 				case 'C':		/* command complete */

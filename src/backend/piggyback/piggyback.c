@@ -14,6 +14,7 @@
 #include "piggyback/piggyback.h"
 #include "miscadmin.h"
 #include <limits.h>
+#include "nodes/pg_list.h"
 
 void printIt() {
 	printf("THIS IS PRINTED");
@@ -31,83 +32,112 @@ void setPiggybackRootNode(Plan *rootNode) {
 }
 
 void printMetaData() {
-	printSingleColumnStatistics();
-	printFunctionalDependencies();
+	StringInfoData buf;
+	pq_beginmessage(&buf, 'X');
+	printSingleColumnStatistics(&buf);
+	printFunctionalDependencies(&buf);
+	pq_endmessage(&buf);
 }
 
-void printFunctionalDependencies(){
+void printFunctionalDependencies(StringInfoData* buf) {
+	int fdCount = 0;
 	int i;
-	for(i=0;i<piggyback->numberOfAttributes; i++){
+	for (i = 1; i <= piggyback->numberOfAttributes; i++) {
 		int j;
-		for(j=i+1; j<piggyback->numberOfAttributes; j++){
-			if(j!=i){
-				int distinctCountI = piggyback->resultStatistics->columnStatistics[i].distinct_status;
-				int distinctCountJ = piggyback->resultStatistics->columnStatistics[j].distinct_status;
+		for (j = i + 1; j <= piggyback->numberOfAttributes; j++) {
+			if (j != i) {
+				int distinctCountI = piggyback->resultStatistics->columnStatistics[i-1].distinct_status;
+				int distinctCountJ = piggyback->resultStatistics->columnStatistics[j-1].distinct_status;
 
 				int index = 0;
 				int k;
-				for (k = 0; k < i; k++) {
+				for (k = 1; k < i; k++) {
 					index += piggyback->numberOfAttributes - k;
 				}
-				index += (j-i-1);
+				index += (j - i - 1);
 
-				int twoColumnCombinationOfIAndJ = piggyback->twoColumnsCombinations[index];
+				int twoColumnCombinationOfIAndJ = (int) hashset_num_items(piggyback->twoColumnsCombinations[index]);
+
+				//printf("FD: column %d: distinct_count %d, column %d: distinct count %d, "
+				//		"col_combination %d distinct count: %d \n", i-1, distinctCountI, j-1, distinctCountJ, index, twoColumnCombinationOfIAndJ);
+
+				be_PGAttDesc *colIDesc = piggyback->resultStatistics->columnStatistics[i-1].columnDescriptor;
+				be_PGAttDesc *colJDesc = piggyback->resultStatistics->columnStatistics[j-1].columnDescriptor;
+
+				if (distinctCountI == twoColumnCombinationOfIAndJ) {
+					be_PGFunctionalDependency* fd = calloc(1, sizeof(be_PGFunctionalDependency));
+					fd->determinants = colIDesc;
+					fd->dependent = colJDesc;
+					piggyback->resultStatistics->functionalDependencies = lappend(piggyback->resultStatistics->functionalDependencies, fd);
+					fdCount++;
+				}
+				if (distinctCountJ == twoColumnCombinationOfIAndJ) {
+					be_PGFunctionalDependency* fd = calloc(1, sizeof(be_PGFunctionalDependency));
+					fd->determinants = colJDesc;
+					fd->dependent = colIDesc;
+					piggyback->resultStatistics->functionalDependencies = lappend(piggyback->resultStatistics->functionalDependencies, fd);
+					fdCount++;
+				}
 			}
 		}
 	}
+
+	pq_sendint(buf, fdCount, 4);
+
+	ListCell* cell;
+	foreach(cell, piggyback->resultStatistics->functionalDependencies){
+		be_PGFunctionalDependency* fd = (be_PGFunctionalDependency*)cell->data.ptr_value;
+		//char fdString[255];
+		//sprintf(fdString, "%s --> %s\n", fd->determinants->rescolumnname ,fd->dependent->rescolumnname );
+		pq_sendstring(buf, fd->determinants->rescolumnname);
+		pq_sendstring(buf, fd->dependent->rescolumnname);
+	}
 }
 
-void printSingleColumnStatistics() {
-	StringInfoData buf;
-	pq_beginmessage(&buf, 'X');
-
+void printSingleColumnStatistics(StringInfoData* buf) {
 	if (!piggyback || !piggyback->distinctValues) {
-		pq_sendint(&buf, 0, 4);
-		pq_endmessage(&buf);
+		pq_sendint(buf, 0, 4);
+		pq_endmessage(buf);
 		return;
 	}
 
 	int i;
-	pq_sendint(&buf, piggyback->numberOfAttributes, 4);
+	pq_sendint(buf, piggyback->numberOfAttributes, 4);
 
 	for (i = 0; i < piggyback->numberOfAttributes; i++) {
 		char * columnName = piggyback->resultStatistics->columnStatistics[i].columnDescriptor->rescolumnname;
-		float4 distinctValuesCount =
-				piggyback->resultStatistics->columnStatistics[i].distinct_status;
+		float4 distinctValuesCount = piggyback->resultStatistics->columnStatistics[i].distinct_status;
 		// own calculation
 		if (distinctValuesCount == -2) {
-			distinctValuesCount = (float4) hashset_num_items(
-					piggyback->distinctValues[i]);
+			distinctValuesCount = (float4) hashset_num_items(piggyback->distinctValues[i]);
 			// unique
 		} else if (distinctValuesCount == -1) {
 			distinctValuesCount = piggyback->numberOfTuples;
 			// base stats
 		} else if (distinctValuesCount > -1 && distinctValuesCount < 0) {
-			distinctValuesCount = piggyback->numberOfTuples
-					* distinctValuesCount * -1;
+			distinctValuesCount = piggyback->numberOfTuples * distinctValuesCount * -1;
 		} else if (distinctValuesCount == 0) {
 			//TODO
 		}
 		// *((int*)(piggyback->resultStatistics->columnStatistics[i].minValue))
-		int minValue = (piggyback->resultStatistics->columnStatistics[i].minValue);
-		int maxValue = (piggyback->resultStatistics->columnStatistics[i].maxValue);
-		int isNumeric =
-				piggyback->resultStatistics->columnStatistics[i].isNumeric;
 
-		printf(
-				"column %s (%d) has %ld distinct values, %d as minimum, %d as maximum, numeric: %d \n",
-				columnName, i, distinctValuesCount, minValue, maxValue,
+		// Write distinct values for FD calculation
+		piggyback->resultStatistics->columnStatistics[i].distinct_status = distinctValuesCount;
+
+		int minValue = piggyback->resultStatistics->columnStatistics[i].minValue;
+		int maxValue = piggyback->resultStatistics->columnStatistics[i].maxValue;
+		int isNumeric = piggyback->resultStatistics->columnStatistics[i].isNumeric;
+
+		printf("column %s (%d) has %d distinct values, %d as minimum, %d as maximum, numeric: %d \n", columnName, i, distinctValuesCount, minValue, maxValue,
 				isNumeric);
 
-		pq_sendstring(&buf, columnName);
-		pq_sendint(&buf, i, 4);
-		pq_sendint(&buf, (int) distinctValuesCount, 4);
-		pq_sendint(&buf, minValue, 4);
-		pq_sendint(&buf, maxValue, 4);
-		pq_sendint(&buf, isNumeric, 4);
+		pq_sendstring(buf, columnName);
+		pq_sendint(buf, i, 4);
+		pq_sendint(buf, (int) distinctValuesCount, 4);
+		pq_sendint(buf, minValue, 4);
+		pq_sendint(buf, maxValue, 4);
+		pq_sendint(buf, isNumeric, 4);
 	}
-
-	pq_endmessage(&buf);
 }
 
 //begin stolen hashset - https://github.com/avsej/hashset.c
