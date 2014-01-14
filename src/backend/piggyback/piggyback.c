@@ -128,7 +128,7 @@ void printSingleColumnStatistics(StringInfoData* buf) {
 		int maxValue = piggyback->resultStatistics->columnStatistics[i].maxValue;
 		int isNumeric = piggyback->resultStatistics->columnStatistics[i].isNumeric;
 
-		printf("column %s (%d) has %d distinct values, %d as minimum, %d as maximum, numeric: %d \n", columnName, i, distinctValuesCount, minValue, maxValue,
+		printf("column %s (%d) has %d distinct values, %d as minimum, %d as maximum, numeric: %d \n", columnName, i, (int) distinctValuesCount, minValue, maxValue,
 				isNumeric);
 
 		pq_sendstring(buf, columnName);
