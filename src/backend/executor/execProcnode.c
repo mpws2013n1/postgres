@@ -152,6 +152,7 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 
 	// Pointers that are necessary for specific node types like SeqScan.
 	SeqScanState* resultAsScanState;
+	IndexScanState* resultAsIndexScan;
 	AggState* resultAsAggState;
 	int tableOid = -1;
 	/*
@@ -213,8 +214,19 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 		break;
 
 	case T_IndexScan:
-		result = (PlanState *) ExecInitIndexScan((IndexScan *) node, estate,
+		resultAsIndexScan = ExecInitIndexScan((IndexScan *) node, estate,
 				eflags);
+		result = (PlanState *) resultAsIndexScan;
+
+		if (resultAsIndexScan)
+		{
+			volatile ScanState ss = resultAsIndexScan->ss;
+			volatile Relation rel = ss.ss_currentRelation;
+			tableOid = resultAsIndexScan->ss.ss_currentRelation->rd_id;
+		}
+		int opno = ((OpExpr*) ((ExprState*) linitial(resultAsIndexScan->indexqualorig))->expr)->opno;
+		printf("opno: %d\n", opno);
+		//LookForFilterWithEquality(result, tableOid);
 		break;
 
 	case T_IndexOnlyScan:
