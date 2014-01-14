@@ -524,11 +524,11 @@ ExecProcNode(PlanState *node) {
 			Form_pg_attribute *attrList = result->tts_tupleDescriptor->attrs;
 
 			Datum datum;
-			bool *isNull = malloc(sizeof(bool));
+			bool isNull;
 
 			int i = 0;
 			for (i = 0; i < piggyback->numberOfAttributes; i++) {
-				datum = slot_getattr(result, i+1, isNull);
+				datum = slot_getattr(result, i+1, &isNull);
 				if (isNull) {
 					continue;
 				}
@@ -589,15 +589,15 @@ void buildTwoColumnCombinations(char* valueToConcat, int from,TupleTableSlot *re
 		return;
 	}
 	Form_pg_attribute *attrList = result->tts_tupleDescriptor->attrs;
-	Datum* datumList = result->tts_values;
 	Datum datum;
+	bool isNull;
 
 	int i;
 	for (i = from; i < piggyback->numberOfAttributes; i++) {
-		if (result->tts_isnull[i]) {
+		datum = slot_getattr(result, i+1, &isNull);
+		if (isNull) {
 			continue;
 		}
-		datum = datumList[i];
 
 		Form_pg_attribute attr = attrList[i];
 		// Use data type aware conversion.
@@ -615,9 +615,6 @@ void buildTwoColumnCombinations(char* valueToConcat, int from,TupleTableSlot *re
 		}
 		case BPCHAROID:
 		case VARCHAROID: { // Varchar
-			if (0 == datum) {
-				continue;
-			}
 			char *value = TextDatumGetCString(datum);
 			addToTwoColumnCombinationHashSet(from, valueToConcat, i+1, value);
 			break;
