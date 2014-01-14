@@ -2600,15 +2600,17 @@ printQuery(const PGresult *result, const printQueryOpt *opt, FILE *fout, FILE *f
 	Assert(opt->translate_columns == NULL ||
 		   opt->n_translate_columns >= cont.ncolumns);
 
-	printf("functional dependencies of the query result: \n");
-	for(i=0;i<result->statistics->functionalDependenciesCount;i++){
-		char fdString[255];
-		sprintf(fdString, "%s -> %s",
-				result->statistics->functionalDependencies[i].determinants->name,
-				result->statistics->functionalDependencies[i].dependent->name);
-		 printf("%s\n", fdString);
+	if (result->statistics->functionalDependencies) {
+		printf("functional dependencies of the query result: \n");
+		for(i = 0; i < result->statistics->functionalDependenciesCount; i++){
+			char fdString[255];
+			sprintf(fdString, "%s -> %s",
+					result->statistics->functionalDependencies[i].determinants->name,
+					result->statistics->functionalDependencies[i].dependent->name);
+			 printf("%s\n", fdString);
+		}
+		printf("\n\n");
 	}
-	printf("\n\n");
 
 	for (i = 0; i < cont.ncolumns; i++)
 	{
@@ -2642,28 +2644,32 @@ printQuery(const PGresult *result, const printQueryOpt *opt, FILE *fout, FILE *f
 
 		header = calloc(100,sizeof(char));	// Maximum size of a column header is assumed to be 100.
 		columnStats = result->statistics->columnStatistics;
-		if (i == columnStats[i].columnDescriptor->columnid) {
-			// The order of columnStatistics is the same as the order of the columns.
-			n_distinct = columnStats[i].n_distinct;
-			minValue = columnStats[i].minValue;
-			maxValue = columnStats[i].maxValue;
-			isNumeric = columnStats[i].isNumeric;
-		} else {
-			// If not: Linear search for right column statistics
-			int j;
-			for (j = 0; j < cont.ncolumns; j++) {
-				if (i == columnStats[j].columnDescriptor->columnid) {
-					n_distinct = columnStats[j].n_distinct;
-					minValue = columnStats[j].minValue;
-					maxValue = columnStats[j].maxValue;
-					isNumeric = columnStats[j].isNumeric;
+		if (columnStats) {
+			if (i == columnStats[i].columnDescriptor->columnid) {
+				// The order of columnStatistics is the same as the order of the columns.
+				n_distinct = columnStats[i].n_distinct;
+				minValue = columnStats[i].minValue;
+				maxValue = columnStats[i].maxValue;
+				isNumeric = columnStats[i].isNumeric;
+			} else {
+				// If not: Linear search for right column statistics
+				int j;
+				for (j = 0; j < cont.ncolumns; j++) {
+					if (i == columnStats[j].columnDescriptor->columnid) {
+						n_distinct = columnStats[j].n_distinct;
+						minValue = columnStats[j].minValue;
+						maxValue = columnStats[j].maxValue;
+						isNumeric = columnStats[j].isNumeric;
+					}
 				}
 			}
-		}
-		if (isNumeric == 1) {
-			snprintf(header, 100, "%s (%d distinct values, %d min, %d max)", PQfname(result, i), n_distinct, minValue, maxValue);
+			if (isNumeric == 1) {
+				snprintf(header, 100, "%s (%d distinct values, %d min, %d max)", PQfname(result, i), n_distinct, minValue, maxValue);
+			} else {
+				snprintf(header, 100, "%s (%d distinct values)", PQfname(result, i), n_distinct);
+			}
 		} else {
-			snprintf(header, 100, "%s (%d distinct values)", PQfname(result, i), n_distinct);
+			snprintf(header, 100, "%s", PQfname(result, i));
 		}
 		printTableAddHeader(&cont, strdup(header),
 							opt->translate_header, align);

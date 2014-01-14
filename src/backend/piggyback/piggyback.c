@@ -40,6 +40,11 @@ void printMetaData() {
 }
 
 void printFunctionalDependencies(StringInfoData* buf) {
+	if (!piggyback || piggyback->numberOfTuples <= 0) {
+		pq_sendint(buf, 0, 4);
+		return;
+	}
+
 	int fdCount = 0;
 	int i;
 	for (i = 1; i <= piggyback->numberOfAttributes; i++) {
@@ -95,9 +100,8 @@ void printFunctionalDependencies(StringInfoData* buf) {
 }
 
 void printSingleColumnStatistics(StringInfoData* buf) {
-	if (!piggyback || !piggyback->distinctValues) {
+	if (!piggyback || !piggyback->distinctValues || piggyback->numberOfTuples <= 0) {
 		pq_sendint(buf, 0, 4);
-		pq_endmessage(buf);
 		return;
 	}
 
@@ -128,7 +132,7 @@ void printSingleColumnStatistics(StringInfoData* buf) {
 		int maxValue = piggyback->resultStatistics->columnStatistics[i].maxValue;
 		int isNumeric = piggyback->resultStatistics->columnStatistics[i].isNumeric;
 
-		printf("column %s (%d) has %d distinct values, %d as minimum, %d as maximum, numeric: %d \n", columnName, i, distinctValuesCount, minValue, maxValue,
+		printf("column %s (%d) has %d distinct values, %d as minimum, %d as maximum, numeric: %d \n", columnName, i, (int) distinctValuesCount, minValue, maxValue,
 				isNumeric);
 
 		pq_sendstring(buf, columnName);
