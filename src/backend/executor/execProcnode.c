@@ -115,6 +115,8 @@
 
 #include "utils/hsearch.h"
 #include "utils/builtins.h"
+#include "utils/rel.h"
+#include "utils/relcache.h"
 #include "utils/syscache.h"
 #include "nodes/pg_list.h"
 #include "catalog/pg_attribute.h"
@@ -148,6 +150,11 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 	List *subps;
 	ListCell *l;
 
+	// Pointers that are necessary for specific node types like SeqScan.
+	SeqScanState* resultAsScanState;
+	IndexScanState* resultAsIndexScan;
+	AggState* resultAsAggState;
+	int tableOid = -1;
 	/*
 	 * do nothing when we get to the end of a leaf on tree.
 	 */
@@ -195,25 +202,27 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 		 * scan nodes
 		 */
 	case T_SeqScan:
-		result = (PlanState *) ExecInitSeqScan((SeqScan *) node, estate,
+		resultAsScanState = ExecInitSeqScan((SeqScan *) node, estate,
 				eflags);
+		result = (PlanState *) resultAsScanState;
 
-		if (result->qual) {
-			int opno =
-					((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->opno;
-			if (opno == 94 || opno == 96 || opno == 410) {
-				printf("Column %d has ",
-						((Var*) ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->args->head->data.ptr_value)->varattno);
-				printf("Min, Max, Avg: %d\n",
-						((Const*) ((OpExpr*) ((ExprState*) linitial(
-								result->qual))->expr)->args->tail->data.ptr_value)->constvalue);
-			}
+		if (resultAsScanState)
+		{
+			tableOid = resultAsScanState->ss_currentRelation->rd_id;
 		}
+		LookForFilterWithEquality(result, tableOid, result->qual);
 		break;
 
 	case T_IndexScan:
-		result = (PlanState *) ExecInitIndexScan((IndexScan *) node, estate,
+		resultAsIndexScan = ExecInitIndexScan((IndexScan *) node, estate,
 				eflags);
+		result = (PlanState *) resultAsIndexScan;
+
+		if (resultAsIndexScan)
+		{
+			tableOid = resultAsIndexScan->ss.ss_currentRelation->rd_id;
+		}
+		LookForFilterWithEquality(result, tableOid, resultAsIndexScan->indexqualorig);
 		break;
 
 	case T_IndexOnlyScan:
@@ -301,7 +310,15 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 		break;
 
 	case T_Agg:
-		result = (PlanState *) ExecInitAgg((Agg *) node, estate, eflags);
+		resultAsAggState = ExecInitAgg((Agg *) node, estate, eflags);
+		result = (PlanState *) resultAsAggState;
+
+		if (resultAsAggState)
+		{
+			//tableOid = rel->rd_id;
+			//tableOid = resultAsAggState->ss.ss_currentRelation->rd_id;
+		}
+		//LookForFilterWithEquality(result, tableOid);
 		break;
 
 	case T_WindowAgg:
@@ -357,6 +374,58 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 		result->instrument = InstrAlloc(1, estate->es_instrument);
 
 	return result;
+}
+
+void
+LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual)
+{
+	if (qual) {
+		int opno = ((OpExpr*) ((ExprState*) linitial(qual))->expr)->opno;
+
+		if(opno == 94 || opno == 96 || opno == 410 || opno == 416 || opno == 1862 || opno == 1868 || opno == 15 || opno == 532 || opno == 533) { // it is a equality like number_of_tracks = 3
+			be_PGAttDesc *columnData = (be_PGAttDesc*) malloc(sizeof(be_PGAttDesc));
+			int numberOfAttributes = result->plan->targetlist->length;
+
+			int *minAndMaxAndAvg = (int*) malloc(sizeof(int));
+			int columnId = ((Var*) ((OpExpr*) ((ExprState*) linitial(qual))->expr)->args->head->data.ptr_value)->varattno;
+			minAndMaxAndAvg = &(((Const*) ((OpExpr*) ((ExprState*) linitial(qual))->expr)->args->tail->data.ptr_value)->constvalue);
+
+			columnData->srccolumnid = columnId;
+
+			// we always set the type to 8byte-integer because we don't need a detailed differentiation
+			columnData->typid = 20;
+
+			// TODO: write this in a method that returns i for better readability
+			int i = 0;
+			for (; i < piggyback->numberOfAttributes; i++)
+			{
+				if (tableOid == piggyback->resultStatistics->columnStatistics[i].columnDescriptor->srctableid
+						&& columnData->srccolumnid == piggyback->resultStatistics->columnStatistics[i].columnDescriptor->srccolumnid)
+					break;
+			}
+
+			// only write values, if the selected field is part of the result table
+			if (i < piggyback->numberOfAttributes)
+			{
+				piggyback->resultStatistics->columnStatistics[i].columnDescriptor = columnData;
+				piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
+				piggyback->resultStatistics->columnStatistics[i].maxValue = *minAndMaxAndAvg;
+				piggyback->resultStatistics->columnStatistics[i].minValue = *minAndMaxAndAvg;
+				piggyback->resultStatistics->columnStatistics[i].mostFrequentValue = *minAndMaxAndAvg;
+				piggyback->resultStatistics->columnStatistics[i].distinct_status = 1;
+
+				// the meta data for this column ist complete and should not be calculated again
+				piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = 1;
+				piggyback->resultStatistics->columnStatistics[i].minValueIsFinal = 1;
+				piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal = 1;
+				piggyback->resultStatistics->columnStatistics[i].mostFrequentValueIsFinal = 1;
+			}
+			else
+			{
+				printf("there are statistics results from the selection that are not part of the result table\n");
+			}
+		}
+	}
 }
 
 /* ----------------------------------------------------------------
@@ -541,6 +610,7 @@ ExecProcNode(PlanState *node) {
 
 				// Use data type aware conversion.
 				Form_pg_attribute attr = attrList[i];
+
 				switch (attr->atttypid) {
 				case INT8OID:
 				case INT2OID:
@@ -552,12 +622,14 @@ ExecProcNode(PlanState *node) {
 					sprintf(cvalue, "%d", value);
 					piggyback->slotValues[i] = cvalue;
 
-					if (value < piggyback->resultStatistics->columnStatistics[i].minValue
-							|| piggyback->resultStatistics->columnStatistics[i].minValue == INT_MAX)
-						piggyback->resultStatistics->columnStatistics[i].minValue = value;
-					if (value > piggyback->resultStatistics->columnStatistics[i].maxValue
-							|| piggyback->resultStatistics->columnStatistics[i].maxValue == INT_MIN)
-						piggyback->resultStatistics->columnStatistics[i].maxValue = value;
+					if (!piggyback->resultStatistics->columnStatistics[i].minValueIsFinal)
+						if (value < piggyback->resultStatistics->columnStatistics[i].minValue
+								|| piggyback->resultStatistics->columnStatistics[i].minValue == INT_MAX)
+							piggyback->resultStatistics->columnStatistics[i].minValue = value;
+					if (!piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal)
+						if (value > piggyback->resultStatistics->columnStatistics[i].maxValue
+								|| piggyback->resultStatistics->columnStatistics[i].maxValue == INT_MIN)
+							piggyback->resultStatistics->columnStatistics[i].maxValue = value;
 					if (piggyback->resultStatistics->columnStatistics[i].distinct_status == -2) {
 						hashset_add_integer(piggyback->distinctValues[i], value);
 					}
