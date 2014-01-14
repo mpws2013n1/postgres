@@ -529,7 +529,7 @@ ExecProcNode(PlanState *node) {
 			int i = 0;
 			for (i = 0; i < piggyback->numberOfAttributes; i++) {
 				datum = slot_getattr(result, i+1, isNull);
-				if (isNull) {
+				if (*isNull) {
 					continue;
 				}
 				Form_pg_attribute attr = attrList[i];
