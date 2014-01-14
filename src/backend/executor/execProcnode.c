@@ -210,7 +210,7 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 		{
 			tableOid = resultAsScanState->ss_currentRelation->rd_id;
 		}
-		LookForFilterWithEquality(result, tableOid);
+		LookForFilterWithEquality(result, tableOid, result->qual);
 		break;
 
 	case T_IndexScan:
@@ -220,13 +220,9 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 
 		if (resultAsIndexScan)
 		{
-			volatile ScanState ss = resultAsIndexScan->ss;
-			volatile Relation rel = ss.ss_currentRelation;
 			tableOid = resultAsIndexScan->ss.ss_currentRelation->rd_id;
 		}
-		int opno = ((OpExpr*) ((ExprState*) linitial(resultAsIndexScan->indexqualorig))->expr)->opno;
-		printf("opno: %d\n", opno);
-		//LookForFilterWithEquality(result, tableOid);
+		LookForFilterWithEquality(result, tableOid, resultAsIndexScan->indexqualorig);
 		break;
 
 	case T_IndexOnlyScan:
@@ -381,24 +377,18 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 }
 
 void
-LookForFilterWithEquality(PlanState* result, Oid tableOid)
+LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual)
 {
-	if (result->qual) {
-		int opno = ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->opno;
+	if (qual) {
+		int opno = ((OpExpr*) ((ExprState*) linitial(qual))->expr)->opno;
 
 		if(opno == 94 || opno == 96 || opno == 410 || opno == 416 || opno == 1862 || opno == 1868 || opno == 15 || opno == 532 || opno == 533) { // it is a equality like number_of_tracks = 3
 			be_PGAttDesc *columnData = (be_PGAttDesc*) malloc(sizeof(be_PGAttDesc));
 			int numberOfAttributes = result->plan->targetlist->length;
-			/*int tableOid = -1;
-			SeqScanState* resultAsScanState = ((SeqScanState*)result);
-			if (resultAsScanState)
-			{
-				tableOid = ((SeqScanState*)result)->ss_currentRelation->rd_id;
-			}*/
 
 			int *minAndMaxAndAvg = (int*) malloc(sizeof(int));
-			int columnId = ((Var*) ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->args->head->data.ptr_value)->varattno;
-			minAndMaxAndAvg = &(((Const*) ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->args->tail->data.ptr_value)->constvalue);
+			int columnId = ((Var*) ((OpExpr*) ((ExprState*) linitial(qual))->expr)->args->head->data.ptr_value)->varattno;
+			minAndMaxAndAvg = &(((Const*) ((OpExpr*) ((ExprState*) linitial(qual))->expr)->args->tail->data.ptr_value)->constvalue);
 
 			columnData->srccolumnid = columnId;
 
@@ -422,7 +412,7 @@ LookForFilterWithEquality(PlanState* result, Oid tableOid)
 				piggyback->resultStatistics->columnStatistics[i].maxValue = *minAndMaxAndAvg;
 				piggyback->resultStatistics->columnStatistics[i].minValue = *minAndMaxAndAvg;
 				piggyback->resultStatistics->columnStatistics[i].mostFrequentValue = *minAndMaxAndAvg;
-				piggyback->resultStatistics->columnStatistics[i].distinct_status = 10;
+				piggyback->resultStatistics->columnStatistics[i].distinct_status = 1;
 
 				// the meta data for this column ist complete and should not be calculated again
 				piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = 1;
