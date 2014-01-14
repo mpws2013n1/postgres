@@ -88,8 +88,9 @@ void printSingleColumnStatistics() {
 		} else if (distinctValuesCount == 0) {
 			//TODO
 		}
-		int minValue = *((int*)(piggyback->resultStatistics->columnStatistics[i].minValue));
-		int maxValue = *((int*)(piggyback->resultStatistics->columnStatistics[i].maxValue));
+		// *((int*)(piggyback->resultStatistics->columnStatistics[i].minValue))
+		int minValue = (piggyback->resultStatistics->columnStatistics[i].minValue);
+		int maxValue = (piggyback->resultStatistics->columnStatistics[i].maxValue);
 		int isNumeric =
 				piggyback->resultStatistics->columnStatistics[i].isNumeric;
 

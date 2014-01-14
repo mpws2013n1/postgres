@@ -115,6 +115,8 @@
 
 #include "utils/hsearch.h"
 #include "utils/builtins.h"
+#include "utils/rel.h"
+#include "utils/relcache.h"
 #include "utils/syscache.h"
 #include "nodes/pg_list.h"
 #include "catalog/pg_attribute.h"
@@ -204,6 +206,13 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 			if(opno == 94 || opno == 96 || opno == 410 || opno == 416) { // it is a equality like number_of_tracks = 3
 				be_PGAttDesc *columnData = (be_PGAttDesc*) malloc(sizeof(be_PGAttDesc));
 				int numberOfAttributes = result->plan->targetlist->length;
+				int tableOid = -1;
+				SeqScanState* resultAsScanState = ((SeqScanState*)result);
+				if (resultAsScanState)
+				{
+					tableOid = ((SeqScanState*)result)->ss_currentRelation->rd_id;
+				}
+
 				int *minAndMaxAndAvg = (int*) malloc(sizeof(int));
 				int columnId = ((Var*) ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->args->head->data.ptr_value)->varattno;
 				minAndMaxAndAvg = &(((Const*) ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->args->tail->data.ptr_value)->constvalue);
@@ -214,18 +223,35 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 
 				//int one = 1;
 				// TODO: use correct columnStatistics instead of the first
-				piggyback->resultStatistics->columnStatistics[0].columnDescriptor = columnData;
-				piggyback->resultStatistics->columnStatistics[0].isNumeric = 1;
-				piggyback->resultStatistics->columnStatistics[0].maxValue = minAndMaxAndAvg;
-				piggyback->resultStatistics->columnStatistics[0].minValue = minAndMaxAndAvg;
-				piggyback->resultStatistics->columnStatistics[0].mostFrequentValue = minAndMaxAndAvg;
-				piggyback->resultStatistics->columnStatistics[0].distinct_status = minAndMaxAndAvg;
 
-				// the meta data for this column ist complete and should not be calculated again
-				piggyback->resultStatistics->columnStatistics[0].n_distinctIsFinal = 1;
-				piggyback->resultStatistics->columnStatistics[0].minValueIsFinal = 1;
-				piggyback->resultStatistics->columnStatistics[0].maxValueIsFinal = 1;
-				piggyback->resultStatistics->columnStatistics[0].mostFrequentValueIsFinal = 1;
+				// TODO: write this in a method that returns i for better readability
+				int i = 0;
+				for (; i < piggyback->numberOfAttributes; i++)
+				{
+					if (tableOid == piggyback->resultStatistics->columnStatistics[i].columnDescriptor->srctableid)
+						break;
+				}
+
+				// only write values, if the selected field is part of the result table
+				if (i < piggyback->numberOfAttributes)
+				{
+					piggyback->resultStatistics->columnStatistics[i].columnDescriptor = columnData;
+					piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
+					piggyback->resultStatistics->columnStatistics[i].maxValue = minAndMaxAndAvg;
+					piggyback->resultStatistics->columnStatistics[i].minValue = minAndMaxAndAvg;
+					piggyback->resultStatistics->columnStatistics[i].mostFrequentValue = minAndMaxAndAvg;
+					piggyback->resultStatistics->columnStatistics[i].distinct_status = -1;
+
+					// the meta data for this column ist complete and should not be calculated again
+					piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = 1;
+					piggyback->resultStatistics->columnStatistics[i].minValueIsFinal = 1;
+					piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal = 1;
+					piggyback->resultStatistics->columnStatistics[i].mostFrequentValueIsFinal = 1;
+				}
+				else
+				{
+					printf("there are statistics results from the selection that are not part of the result table\n");
+				}
 			}
 		}
 		break;
