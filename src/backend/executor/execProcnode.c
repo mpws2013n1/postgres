@@ -202,9 +202,8 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 
 		if (result->qual) {
 			int opno = ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->opno;
-			// eventually we want to add opno == 533 (also integer equality according to src/include/catalog/pg_operator.h line 299
-			// TODO: support more integer equalities
-			if(opno == 94 || opno == 96 || opno == 410 || opno == 416) { // it is a equality like number_of_tracks = 3
+
+			if(opno == 94 || opno == 96 || opno == 410 || opno == 416 || opno == 1862 || opno == 1868 || opno == 15 || opno == 532 || opno == 533) { // it is a equality like number_of_tracks = 3
 				be_PGAttDesc *columnData = (be_PGAttDesc*) malloc(sizeof(be_PGAttDesc));
 				int numberOfAttributes = result->plan->targetlist->length;
 				int tableOid = -1;
@@ -219,7 +218,6 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 				minAndMaxAndAvg = &(((Const*) ((OpExpr*) ((ExprState*) linitial(result->qual))->expr)->args->tail->data.ptr_value)->constvalue);
 
 				columnData->srccolumnid = columnId;
-				//columnData->columnid = columnId;
 
 				// we always set the type to 8byte-integer because we don't need a detailed differentiation
 				columnData->typid = 20;
@@ -228,7 +226,8 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 				int i = 0;
 				for (; i < piggyback->numberOfAttributes; i++)
 				{
-					if (tableOid == piggyback->resultStatistics->columnStatistics[i].columnDescriptor->srctableid)
+					if (tableOid == piggyback->resultStatistics->columnStatistics[i].columnDescriptor->srctableid
+							&& columnData->srccolumnid == piggyback->resultStatistics->columnStatistics[i].columnDescriptor->srccolumnid)
 						break;
 				}
 
