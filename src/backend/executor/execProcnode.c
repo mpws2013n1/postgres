@@ -307,6 +307,7 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 
 		if (resultAsAggState)
 		{
+			//tableOid = rel->rd_id;
 			//tableOid = resultAsAggState->ss.ss_currentRelation->rd_id;
 		}
 		//LookForFilterWithEquality(result, tableOid);
