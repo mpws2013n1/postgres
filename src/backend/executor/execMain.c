@@ -980,7 +980,7 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 			piggyback->resultStatistics->columnStatistics[i].isNumeric = NULL;
 
 			int useDistinctStatsFromBaseStats = !nodeHasFilter(planstate);
-			useDistinctStatsFromBaseStats = 0;
+//			useDistinctStatsFromBaseStats = 0;
 			if (useDistinctStatsFromBaseStats == 1) {
 				unsigned int relOid = tle->resorigtbl;
 				int attnum = get_attnum(relOid, name);
