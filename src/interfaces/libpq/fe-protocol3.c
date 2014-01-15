@@ -211,45 +211,52 @@ pqParseInput3(PGconn *conn)
 				case 'X':{
 					pqGetInt(&numberOfColumns, 4, conn);
 					statistics = (fe_PGStatistics*)(malloc(sizeof(fe_PGStatistics)));
-					statistics->columnStatistics = (fe_PGColumnStatistic*)(calloc(numberOfColumns, sizeof(fe_PGColumnStatistic)));
-					for (i = 0; i < numberOfColumns; i++) {
-						statistics->columnStatistics[i].columnDescriptor = (fe_PGAttDesc*)(calloc(1, sizeof(fe_PGAttDesc)));
-						pqGets(&conn->workBuffer, conn);
-						statistics->columnStatistics[i].columnDescriptor->name = malloc(strlen(conn->workBuffer.data)+1);
-						strcpy(statistics->columnStatistics[i].columnDescriptor->name, conn->workBuffer.data);
-						pqGetInt(&columnid, 4, conn);
-						statistics->columnStatistics[i].columnDescriptor->columnid = columnid;
-						pqGetInt(&n_distinct, 4, conn);
-						statistics->columnStatistics[i].n_distinct = n_distinct;
-						pqGetInt(&minValue, 4, conn);
-						statistics->columnStatistics[i].minValue = minValue;
-						pqGetInt(&maxValue, 4, conn);
-						statistics->columnStatistics[i].maxValue = maxValue;
-						pqGetInt(&isNumeric, 4, conn);
-						statistics->columnStatistics[i].isNumeric = isNumeric;
+					if (0 == numberOfColumns) {
+						statistics->columnStatistics = NULL;
+					} else {
+						statistics->columnStatistics = (fe_PGColumnStatistic*)(calloc(numberOfColumns, sizeof(fe_PGColumnStatistic)));
+						for (i = 0; i < numberOfColumns; i++) {
+							statistics->columnStatistics[i].columnDescriptor = (fe_PGAttDesc*)(calloc(1, sizeof(fe_PGAttDesc)));
+							pqGets(&conn->workBuffer, conn);
+							statistics->columnStatistics[i].columnDescriptor->name = malloc(strlen(conn->workBuffer.data)+1);
+							strcpy(statistics->columnStatistics[i].columnDescriptor->name, conn->workBuffer.data);
+							pqGetInt(&columnid, 4, conn);
+							statistics->columnStatistics[i].columnDescriptor->columnid = columnid;
+							pqGetInt(&n_distinct, 4, conn);
+							statistics->columnStatistics[i].n_distinct = n_distinct;
+							pqGetInt(&minValue, 4, conn);
+							statistics->columnStatistics[i].minValue = minValue;
+							pqGetInt(&maxValue, 4, conn);
+							statistics->columnStatistics[i].maxValue = maxValue;
+							pqGetInt(&isNumeric, 4, conn);
+							statistics->columnStatistics[i].isNumeric = isNumeric;
+						}
 					}
 
-
 					pqGetInt(&statistics->functionalDependenciesCount, 4, conn);
-					statistics->functionalDependencies = calloc(statistics->functionalDependenciesCount,
-							sizeof(fe_PGFunctionalDependency));
-					for (i = 0; i < statistics->functionalDependenciesCount; i++) {
-						fe_PGFunctionalDependency* fd = calloc(1,
+					if (0 == statistics->functionalDependenciesCount) {
+						statistics->functionalDependencies = NULL;
+					} else {
+						statistics->functionalDependencies = calloc(statistics->functionalDependenciesCount,
 								sizeof(fe_PGFunctionalDependency));
+						for (i = 0; i < statistics->functionalDependenciesCount; i++) {
+							fe_PGFunctionalDependency* fd = calloc(1,
+									sizeof(fe_PGFunctionalDependency));
 
-						fd->determinants = calloc(1, sizeof(fe_PGAttDesc));
-						pqGets(&conn->workBuffer, conn);
-						fd->determinants->name = malloc(
-								strlen(conn->workBuffer.data) + 1);
-						strcpy(fd->determinants->name, conn->workBuffer.data);
+							fd->determinants = calloc(1, sizeof(fe_PGAttDesc));
+							pqGets(&conn->workBuffer, conn);
+							fd->determinants->name = malloc(
+									strlen(conn->workBuffer.data) + 1);
+							strcpy(fd->determinants->name, conn->workBuffer.data);
 
-						fd->dependent = calloc(1, sizeof(fe_PGAttDesc));
-						pqGets(&conn->workBuffer, conn);
-						fd->dependent->name = malloc(
-								strlen(conn->workBuffer.data) + 1);
-						strcpy(fd->dependent->name, conn->workBuffer.data);
+							fd->dependent = calloc(1, sizeof(fe_PGAttDesc));
+							pqGets(&conn->workBuffer, conn);
+							fd->dependent->name = malloc(
+									strlen(conn->workBuffer.data) + 1);
+							strcpy(fd->dependent->name, conn->workBuffer.data);
 
-						statistics->functionalDependencies[i] = *fd;
+							statistics->functionalDependencies[i] = *fd;
+						}
 					}
 				}
 
