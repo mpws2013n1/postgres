@@ -606,6 +606,7 @@ ExecProcNode(PlanState *node) {
 			for (i = 0; i < piggyback->numberOfAttributes; i++) {
 				datum = slot_getattr(result, i + 1, &isNull);
 				if (isNull) {
+					piggyback->slotValues[i] = "";
 					continue;
 				}
 
@@ -635,7 +636,7 @@ ExecProcNode(PlanState *node) {
 						if (value > *((int*)(piggyback->resultStatistics->columnStatistics[i].maxValue))
 								|| *((int*)(piggyback->resultStatistics->columnStatistics[i].maxValue)) == INT_MIN)
 							piggyback->resultStatistics->columnStatistics[i].maxValue = val_pntr;
-					if (piggyback->resultStatistics->columnStatistics[i].distinct_status == -2) {
+					if (piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal == 0) {
 						hashset_add_integer(piggyback->distinctValues[i], value);
 					}
 					break;
@@ -655,12 +656,13 @@ ExecProcNode(PlanState *node) {
 					piggyback->slotValues[i] = TextDatumGetCString(datum);
 
 					piggyback->resultStatistics->columnStatistics[i].isNumeric = 0;
-					if (piggyback->resultStatistics->columnStatistics[i].distinct_status == -2) {
+					if (piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal == 0) {
 						hashset_add_string(piggyback->distinctValues[i], piggyback->slotValues[i]);
 					}
 					break;
 				}
 				default:
+					piggyback->slotValues[i] = "";
 					break;
 				}
 			}

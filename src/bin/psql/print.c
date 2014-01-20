@@ -2600,16 +2600,18 @@ printQuery(const PGresult *result, const printQueryOpt *opt, FILE *fout, FILE *f
 	Assert(opt->translate_columns == NULL ||
 		   opt->n_translate_columns >= cont.ncolumns);
 
-	if (result->statistics->functionalDependencies) {
-		printf("functional dependencies of the query result: \n");
-		for(i = 0; i < result->statistics->functionalDependenciesCount; i++){
-			char fdString[255];
-			sprintf(fdString, "%s -> %s",
-					result->statistics->functionalDependencies[i].determinants->name,
-					result->statistics->functionalDependencies[i].dependent->name);
-			 printf("%s\n", fdString);
+	if (result->statistics) {
+		if (result->statistics->functionalDependencies) {
+			printf("functional dependencies of the query result: \n");
+			for(i = 0; i < result->statistics->functionalDependenciesCount; i++){
+				char fdString[255];
+				sprintf(fdString, "%s -> %s",
+						result->statistics->functionalDependencies[i].determinants->name,
+						result->statistics->functionalDependencies[i].dependent->name);
+				 printf("%s\n", fdString);
+			}
+			printf("\n\n");
 		}
-		printf("\n\n");
 	}
 
 	for (i = 0; i < cont.ncolumns; i++)
@@ -2643,8 +2645,8 @@ printQuery(const PGresult *result, const printQueryOpt *opt, FILE *fout, FILE *f
 		}
 
 		header = calloc(100,sizeof(char));	// Maximum size of a column header is assumed to be 100.
-		columnStats = result->statistics->columnStatistics;
-		if (columnStats) {
+		if (result->statistics && result->statistics->columnStatistics) {
+			columnStats = result->statistics->columnStatistics;
 			if (i == columnStats[i].columnDescriptor->columnid) {
 				// The order of columnStatistics is the same as the order of the columns.
 				n_distinct = columnStats[i].n_distinct;

@@ -117,7 +117,7 @@ void printSingleColumnStatistics(StringInfoData* buf) {
 		char * columnName = piggyback->resultStatistics->columnStatistics[i].columnDescriptor->rescolumnname;
 		float4 distinctValuesCount = piggyback->resultStatistics->columnStatistics[i].distinct_status;
 		// own calculation
-		if (distinctValuesCount == -2) {
+		if (piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal == 0) {
 			distinctValuesCount = (float4) hashset_num_items(piggyback->distinctValues[i]);
 			// unique
 		} else if (distinctValuesCount == -1) {

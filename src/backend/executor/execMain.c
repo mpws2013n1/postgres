@@ -923,17 +923,16 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 		piggyback->numberOfAttributes = plan->targetlist->length;
 		piggyback->slotValues = (char**)malloc(piggyback->numberOfAttributes * sizeof(char*));
 
-		piggyback->distinctValues = calloc(piggyback->numberOfAttributes,
-				sizeof(hashset_t*));
+		piggyback->distinctValues = (hashset_t*) calloc(piggyback->numberOfAttributes,sizeof(hashset_t));
 
 		int columnCombinationsCount = (int)((piggyback->numberOfAttributes*piggyback->numberOfAttributes-1)/2);
 
-		piggyback->twoColumnsCombinations = calloc(columnCombinationsCount,sizeof(hashset_t*));
+		piggyback->twoColumnsCombinations = (hashset_t*) calloc(columnCombinationsCount,sizeof(hashset_t));
 
 		//create column combinations
-		int cc =0;
+		int cc = 0;
 		for(;cc<columnCombinationsCount;cc++){
-			piggyback->twoColumnsCombinations[cc] =  hashset_create();
+			piggyback->twoColumnsCombinations[cc] = hashset_create();
 		}
 
 		piggyback->resultStatistics = (be_PGStatistics*) malloc(sizeof(be_PGStatistics));
@@ -1000,8 +999,8 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 			// the name seems to be written inside of ExecInitNode
 			piggyback->resultStatistics->columnStatistics[i].columnDescriptor->rescolumnname = name;
 			int useDistinctStatsFromBaseStats = !nodeHasFilter(planstate);
-//			useDistinctStatsFromBaseStats = 0;
-			if (useDistinctStatsFromBaseStats == 1) {
+			//useDistinctStatsFromBaseStats = 0;
+			if (piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal == 0 && useDistinctStatsFromBaseStats == 1) {
 				unsigned int relOid = tle->resorigtbl;
 				int attnum = get_attnum(relOid, name);
 				HeapTuple statsTuple = SearchSysCache3(STATRELATTINH,
