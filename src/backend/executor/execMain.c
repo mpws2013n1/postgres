@@ -972,9 +972,14 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 
 			//initialize distinct count with -2 to signal that nothing was gathered from basestats
 
+			int *minValue = (int*) malloc(sizeof(int));
+			int *maxValue = (int*) malloc(sizeof(int));
+			*minValue = INT_MAX;
+			*maxValue = INT_MIN;
+
 			piggyback->resultStatistics->columnStatistics[i].distinct_status = -2;
-			piggyback->resultStatistics->columnStatistics[i].minValue = INT_MAX;
-			piggyback->resultStatistics->columnStatistics[i].maxValue = INT_MIN;
+			piggyback->resultStatistics->columnStatistics[i].minValue = minValue;
+			piggyback->resultStatistics->columnStatistics[i].maxValue = maxValue;
 			piggyback->resultStatistics->columnStatistics[i].isNumeric = NULL;
 			i++;
 		}

@@ -129,6 +129,7 @@
 extern Piggyback *piggyback;
 void buildTwoColumnCombinations(char* valueToConcat, int from, TupleTableSlot *result);
 void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to, char* value);
+void LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual);
 
 /* ------------------------------------------------------------------------
  *		ExecInitNode
@@ -409,12 +410,12 @@ LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual)
 			{
 				piggyback->resultStatistics->columnStatistics[i].columnDescriptor = columnData;
 				piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
-				piggyback->resultStatistics->columnStatistics[i].maxValue = *minAndMaxAndAvg;
-				piggyback->resultStatistics->columnStatistics[i].minValue = *minAndMaxAndAvg;
-				piggyback->resultStatistics->columnStatistics[i].mostFrequentValue = *minAndMaxAndAvg;
+				piggyback->resultStatistics->columnStatistics[i].maxValue = minAndMaxAndAvg;
+				piggyback->resultStatistics->columnStatistics[i].minValue = minAndMaxAndAvg;
+				piggyback->resultStatistics->columnStatistics[i].mostFrequentValue = minAndMaxAndAvg;
 				piggyback->resultStatistics->columnStatistics[i].distinct_status = 1;
 
-				// the meta data for this column ist complete and should not be calculated again
+				// the meta data for this column is complete and should not be calculated again
 				piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = 1;
 				piggyback->resultStatistics->columnStatistics[i].minValueIsFinal = 1;
 				piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal = 1;
@@ -617,19 +618,23 @@ ExecProcNode(PlanState *node) {
 				case INT2VECTOROID:
 				case INT4OID: { // Int
 					piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
+					int *val_pntr = (int*) malloc(sizeof(int));
 					int value = (int) (datum);
+					*val_pntr = value;
+
+					// Write temporary slot value for FD calculation
 					char* cvalue = calloc(20, sizeof(char));
 					sprintf(cvalue, "%d", value);
 					piggyback->slotValues[i] = cvalue;
 
 					if (!piggyback->resultStatistics->columnStatistics[i].minValueIsFinal)
-						if (value < piggyback->resultStatistics->columnStatistics[i].minValue
-								|| piggyback->resultStatistics->columnStatistics[i].minValue == INT_MAX)
-							piggyback->resultStatistics->columnStatistics[i].minValue = value;
+						if (value < *((int*)(piggyback->resultStatistics->columnStatistics[i].minValue))
+								|| *((int*)(piggyback->resultStatistics->columnStatistics[i].minValue)) == INT_MAX)
+							piggyback->resultStatistics->columnStatistics[i].minValue = val_pntr;
 					if (!piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal)
-						if (value > piggyback->resultStatistics->columnStatistics[i].maxValue
-								|| piggyback->resultStatistics->columnStatistics[i].maxValue == INT_MIN)
-							piggyback->resultStatistics->columnStatistics[i].maxValue = value;
+						if (value > *((int*)(piggyback->resultStatistics->columnStatistics[i].maxValue))
+								|| *((int*)(piggyback->resultStatistics->columnStatistics[i].maxValue)) == INT_MIN)
+							piggyback->resultStatistics->columnStatistics[i].maxValue = val_pntr;
 					if (piggyback->resultStatistics->columnStatistics[i].distinct_status == -2) {
 						hashset_add_integer(piggyback->distinctValues[i], value);
 					}
