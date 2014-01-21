@@ -413,7 +413,7 @@ LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual)
 				piggyback->resultStatistics->columnStatistics[i].maxValue = minAndMaxAndAvg;
 				piggyback->resultStatistics->columnStatistics[i].minValue = minAndMaxAndAvg;
 				piggyback->resultStatistics->columnStatistics[i].mostFrequentValue = minAndMaxAndAvg;
-				piggyback->resultStatistics->columnStatistics[i].distinct_status = 1;
+				piggyback->resultStatistics->columnStatistics[i].n_distinct = 1;
 
 				// the meta data for this column is complete and should not be calculated again
 				piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = 1;

@@ -976,7 +976,7 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 			*minValue = INT_MAX;
 			*maxValue = INT_MIN;
 
-			piggyback->resultStatistics->columnStatistics[i].distinct_status = -2;
+			piggyback->resultStatistics->columnStatistics[i].n_distinct = -2;
 			piggyback->resultStatistics->columnStatistics[i].minValue = minValue;
 			piggyback->resultStatistics->columnStatistics[i].maxValue = maxValue;
 			piggyback->resultStatistics->columnStatistics[i].isNumeric = NULL;
@@ -1007,10 +1007,9 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 						ObjectIdGetDatum(relOid), Int16GetDatum(attnum),
 						BoolGetDatum(false));
 				if (statsTuple) {
-					Form_pg_statistic statStruct =
-							(Form_pg_statistic) GETSTRUCT(statsTuple);
+					Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
 
-					piggyback->resultStatistics->columnStatistics[i].distinct_status = statStruct->stadistinct;
+					piggyback->resultStatistics->columnStatistics[i].n_distinct = statStruct->stadistinct;
 					ReleaseSysCache(statsTuple);
 				}
 			}
