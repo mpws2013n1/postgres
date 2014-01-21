@@ -1006,11 +1006,24 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 				HeapTuple statsTuple = SearchSysCache3(STATRELATTINH,
 						ObjectIdGetDatum(relOid), Int16GetDatum(attnum),
 						BoolGetDatum(false));
-				if (statsTuple) {
-					Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
+				HeapTuple relTuple = SearchSysCache1(RELOID, ObjectIdGetDatum(relOid));
 
-					piggyback->resultStatistics->columnStatistics[i].n_distinct = statStruct->stadistinct;
+				if (HeapTupleIsValid(statsTuple) && HeapTupleIsValid(relTuple)) {
+					Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
+					float4 n_distinct = statStruct->stadistinct;
+					volatile Form_pg_class pg_class = (Form_pg_class) GETSTRUCT(relTuple);
+					volatile float4 numTuple  = ((Form_pg_class) GETSTRUCT(relTuple))->reltuples;
+
+					if (-1 == n_distinct) {
+						piggyback->resultStatistics->columnStatistics[i].n_distinct = numTuple;
+					} else if (n_distinct < 0 && n_distinct > -1) {
+						piggyback->resultStatistics->columnStatistics[i].n_distinct = numTuple * n_distinct * -1;
+					} else {
+						piggyback->resultStatistics->columnStatistics[i].n_distinct = n_distinct;
+					}
+
 					ReleaseSysCache(statsTuple);
+					ReleaseSysCache(relTuple);
 				}
 			}
 			i++;
