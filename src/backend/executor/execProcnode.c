@@ -155,7 +155,6 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 	SeqScanState* resultAsScanState;
 	IndexScanState* resultAsIndexScan;
 	IndexOnlyScanState* resultAsIndexOnlyScan;
-	AggState* resultAsAggState;
 	int tableOid = -1;
 	/*
 	 * do nothing when we get to the end of a leaf on tree.
@@ -332,15 +331,7 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 		break;
 
 	case T_Agg:
-		resultAsAggState = ExecInitAgg((Agg *) node, estate, eflags);
-		result = (PlanState *) resultAsAggState;
-
-		if (resultAsAggState)
-		{
-			//tableOid = rel->rd_id;
-			//tableOid = resultAsAggState->ss.ss_currentRelation->rd_id;
-		}
-		//LookForFilterWithEquality(result, tableOid, resultAsAggState->aggs);
+		result = ExecInitAgg((Agg *) node, estate, eflags);
 		break;
 
 	case T_WindowAgg:
