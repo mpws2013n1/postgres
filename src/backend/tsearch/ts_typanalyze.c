@@ -63,7 +63,7 @@ ts_typanalyze(PG_FUNCTION_ARGS)
 
 	stats->compute_stats = compute_tsvector_stats;
 	/* see comment about the choice of minrows in commands/analyze.c */
-	stats->minrows = 300 * attr->attstattarget;
+	stats->minrows = 300000 * attr->attstattarget;
 
 	PG_RETURN_BOOL(true);
 }
