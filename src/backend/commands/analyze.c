@@ -1901,14 +1901,14 @@ std_typanalyze(VacAttrStats *stats)
 		 * know it at this point.
 		 *--------------------
 		 */
-		stats->minrows = 300 * attr->attstattarget;
+		stats->minrows = 300000 * attr->attstattarget;
 	}
 	else
 	{
 		/* Can't do much but the minimal stuff */
 		stats->compute_stats = compute_minimal_stats;
 		/* Might as well use the same minrows as above */
-		stats->minrows = 300 * attr->attstattarget;
+		stats->minrows = 300000 * attr->attstattarget;
 	}
 
 	return true;
