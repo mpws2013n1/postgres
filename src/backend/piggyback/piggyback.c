@@ -117,7 +117,7 @@ void printSingleColumnStatistics(StringInfoData* buf) {
 		char * columnName = piggyback->resultStatistics->columnStatistics[i].columnDescriptor->rescolumnname;
 		float4 distinctValuesCount = piggyback->resultStatistics->columnStatistics[i].distinct_status;
 		// own calculation
-		if (distinctValuesCount == -2) {
+		if (piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal == 0) {
 			distinctValuesCount = (float4) hashset_num_items(piggyback->distinctValues[i]);
 			// unique
 		} else if (distinctValuesCount == -1) {
@@ -133,12 +133,17 @@ void printSingleColumnStatistics(StringInfoData* buf) {
 		// Write distinct values for FD calculation
 		piggyback->resultStatistics->columnStatistics[i].distinct_status = distinctValuesCount;
 
-		int minValue = piggyback->resultStatistics->columnStatistics[i].minValue;
-		int maxValue = piggyback->resultStatistics->columnStatistics[i].maxValue;
+		int minValue = *((int*)(piggyback->resultStatistics->columnStatistics[i].minValue));
+		int maxValue = *((int*)(piggyback->resultStatistics->columnStatistics[i].maxValue));
 		int isNumeric = piggyback->resultStatistics->columnStatistics[i].isNumeric;
 
-		printf("column %s (%d) has %d distinct values, %d as minimum, %d as maximum, numeric: %d \n", columnName, i, (int) distinctValuesCount, minValue, maxValue,
-				isNumeric);
+		if(isNumeric) {
+			printf("column %s (%d) has %d distinct values, %d as minimum, %d as maximum, numeric: %d \n",
+					columnName, i, (int) distinctValuesCount, minValue, maxValue, isNumeric);
+		} else {
+			printf("column %s (%d) has %d distinct values, numeric: %d \n",
+								columnName, i, (int) distinctValuesCount, isNumeric);
+		}
 
 		pq_sendstring(buf, columnName);
 		pq_sendint(buf, i, 4);

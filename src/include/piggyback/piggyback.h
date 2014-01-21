@@ -67,8 +67,8 @@ extern void printIt();
 typedef struct _piggyback {
 	be_PGStatistics *resultStatistics;
 	Plan *root;
-	hashset_t **distinctValues;
-	hashset_t **twoColumnsCombinations;
+	hashset_t *distinctValues;
+	hashset_t *twoColumnsCombinations;
 	// temporary save values for each column of a slot
 	char **slotValues;
 	int numberOfAttributes;

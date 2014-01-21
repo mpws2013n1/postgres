@@ -1403,6 +1403,19 @@ print_html_text(const printTableContent *cont, FILE *fout)
 	if (cancel_pressed)
 		return;
 
+	printTableFooter *footers = footers_with_default(cont);
+	/* print footers */
+	if (!opt_tuples_only && footers != NULL && !cancel_pressed) {
+		printTableFooter *f;
+
+		fputs("<p>", fout);
+		for (f = footers; f; f = f->next) {
+			html_escaped_print(f->data, fout);
+			fputs("<br />\n", fout);
+		}
+		fputs("</p>", fout);
+	}
+
 	if (cont->opt->start_table)
 	{
 		fprintf(fout, "<table border=\"%d\"", opt_border);
@@ -1457,23 +1470,23 @@ print_html_text(const printTableContent *cont, FILE *fout)
 
 	if (cont->opt->stop_table)
 	{
-		printTableFooter *footers = footers_with_default(cont);
+//		printTableFooter *footers = footers_with_default(cont);
 
 		fputs("</table>\n", fout);
 
-		/* print footers */
-		if (!opt_tuples_only && footers != NULL && !cancel_pressed)
-		{
-			printTableFooter *f;
-
-			fputs("<p>", fout);
-			for (f = footers; f; f = f->next)
-			{
-				html_escaped_print(f->data, fout);
-				fputs("<br />\n", fout);
-			}
-			fputs("</p>", fout);
-		}
+//		/* print footers */
+//		if (!opt_tuples_only && footers != NULL && !cancel_pressed)
+//		{
+//			printTableFooter *f;
+//
+//			fputs("<p>", fout);
+//			for (f = footers; f; f = f->next)
+//			{
+//				html_escaped_print(f->data, fout);
+//				fputs("<br />\n", fout);
+//			}
+//			fputs("</p>", fout);
+//		}
 
 		fputc('\n', fout);
 	}
@@ -2600,18 +2613,6 @@ printQuery(const PGresult *result, const printQueryOpt *opt, FILE *fout, FILE *f
 	Assert(opt->translate_columns == NULL ||
 		   opt->n_translate_columns >= cont.ncolumns);
 
-	if (result->statistics->functionalDependencies) {
-		printf("functional dependencies of the query result: \n");
-		for(i = 0; i < result->statistics->functionalDependenciesCount; i++){
-			char fdString[255];
-			sprintf(fdString, "%s -> %s",
-					result->statistics->functionalDependencies[i].determinants->name,
-					result->statistics->functionalDependencies[i].dependent->name);
-			 printf("%s\n", fdString);
-		}
-		printf("\n\n");
-	}
-
 	for (i = 0; i < cont.ncolumns; i++)
 	{
 		char *header;
@@ -2643,8 +2644,8 @@ printQuery(const PGresult *result, const printQueryOpt *opt, FILE *fout, FILE *f
 		}
 
 		header = calloc(100,sizeof(char));	// Maximum size of a column header is assumed to be 100.
-		columnStats = result->statistics->columnStatistics;
-		if (columnStats) {
+		if (result->statistics && result->statistics->columnStatistics) {
+			columnStats = result->statistics->columnStatistics;
 			if (i == columnStats[i].columnDescriptor->columnid) {
 				// The order of columnStatistics is the same as the order of the columns.
 				n_distinct = columnStats[i].n_distinct;
@@ -2708,6 +2709,18 @@ printQuery(const PGresult *result, const printQueryOpt *opt, FILE *fout, FILE *f
 
 		for (footer = opt->footers; *footer; footer++)
 			printTableAddFooter(&cont, *footer);
+	}
+
+	if (result->statistics && result->statistics->functionalDependencies) {
+		printTableAddFooter(&cont, "functional dependencies of the query result: \n");
+		for (i = 0; i < result->statistics->functionalDependenciesCount; i++) {
+			char fdString[255];
+			sprintf(fdString, "%s -> %s",
+					result->statistics->functionalDependencies[i].determinants->name,
+					result->statistics->functionalDependencies[i].dependent->name);
+			printTableAddFooter(&cont, fdString);
+		}
+		printf("\n\n");
 	}
 
 	printTable(&cont, fout, flog);
