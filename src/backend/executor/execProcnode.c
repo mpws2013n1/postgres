@@ -154,7 +154,7 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 	// Pointers that are necessary for specific node types like SeqScan.
 	SeqScanState* resultAsScanState;
 	IndexScanState* resultAsIndexScan;
-	AggState* resultAsAggState;
+	IndexOnlyScanState* resultAsIndexOnlyScan;
 	int tableOid = -1;
 	/*
 	 * do nothing when we get to the end of a leaf on tree.
@@ -211,7 +211,11 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 		{
 			tableOid = resultAsScanState->ss_currentRelation->rd_id;
 		}
-		LookForFilterWithEquality(result, tableOid, result->qual);
+
+		if (tableOid != -1)
+		{
+			LookForFilterWithEquality(result, tableOid, result->qual);
+		}
 		break;
 
 	case T_IndexScan:
@@ -223,12 +227,28 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 		{
 			tableOid = resultAsIndexScan->ss.ss_currentRelation->rd_id;
 		}
-		LookForFilterWithEquality(result, tableOid, resultAsIndexScan->indexqualorig);
+
+		if (tableOid != -1)
+		{
+			LookForFilterWithEquality(result, tableOid, resultAsIndexScan->indexqualorig);
+		}
 		break;
 
+	// TODO: search for examples for IndexOnlyScan and test this case (examples on https://wiki.postgresql.org/wiki/Index-only_scans)
 	case T_IndexOnlyScan:
-		result = (PlanState *) ExecInitIndexOnlyScan((IndexOnlyScan *) node,
-				estate, eflags);
+		resultAsIndexOnlyScan = ExecInitIndexOnlyScan((IndexOnlyScan *) node, estate,
+				eflags);
+		result = (PlanState *) resultAsIndexOnlyScan;
+
+		if (resultAsIndexOnlyScan)
+		{
+			tableOid = resultAsIndexOnlyScan->ss.ss_currentRelation->rd_id;
+		}
+
+		if (tableOid != -1)
+		{
+			LookForFilterWithEquality(result, tableOid, resultAsIndexOnlyScan->indexqual);
+		}
 		break;
 
 	case T_BitmapIndexScan:
@@ -311,15 +331,7 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 		break;
 
 	case T_Agg:
-		resultAsAggState = ExecInitAgg((Agg *) node, estate, eflags);
-		result = (PlanState *) resultAsAggState;
-
-		if (resultAsAggState)
-		{
-			//tableOid = rel->rd_id;
-			//tableOid = resultAsAggState->ss.ss_currentRelation->rd_id;
-		}
-		//LookForFilterWithEquality(result, tableOid);
+		result = ExecInitAgg((Agg *) node, estate, eflags);
 		break;
 
 	case T_WindowAgg:
@@ -382,28 +394,29 @@ LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual)
 {
 	if (qual) {
 		int opno = ((OpExpr*) ((ExprState*) linitial(qual))->expr)->opno;
+		int columnId = ((Var*) ((OpExpr*) ((ExprState*) linitial(qual))->expr)->args->head->data.ptr_value)->varattno;
+		be_PGAttDesc *columnData = (be_PGAttDesc*) malloc(sizeof(be_PGAttDesc));
+		columnData->srccolumnid = columnId;
+
+		// TODO: write this in a method that returns i for better readability
+		int i = 0;
+		for (; i < piggyback->numberOfAttributes; i++)
+		{
+			if (tableOid == piggyback->resultStatistics->columnStatistics[i].columnDescriptor->srctableid
+					&& columnData->srccolumnid == piggyback->resultStatistics->columnStatistics[i].columnDescriptor->srccolumnid)
+				break;
+		}
+
+		// TODO: if (i < piggyback->numberOfAttributes) set useBaseStatistics to false
 
 		if(opno == 94 || opno == 96 || opno == 410 || opno == 416 || opno == 1862 || opno == 1868 || opno == 15 || opno == 532 || opno == 533) { // it is a equality like number_of_tracks = 3
-			be_PGAttDesc *columnData = (be_PGAttDesc*) malloc(sizeof(be_PGAttDesc));
 			int numberOfAttributes = result->plan->targetlist->length;
 
 			int *minAndMaxAndAvg = (int*) malloc(sizeof(int));
-			int columnId = ((Var*) ((OpExpr*) ((ExprState*) linitial(qual))->expr)->args->head->data.ptr_value)->varattno;
 			minAndMaxAndAvg = &(((Const*) ((OpExpr*) ((ExprState*) linitial(qual))->expr)->args->tail->data.ptr_value)->constvalue);
-
-			columnData->srccolumnid = columnId;
 
 			// we always set the type to 8byte-integer because we don't need a detailed differentiation
 			columnData->typid = 20;
-
-			// TODO: write this in a method that returns i for better readability
-			int i = 0;
-			for (; i < piggyback->numberOfAttributes; i++)
-			{
-				if (tableOid == piggyback->resultStatistics->columnStatistics[i].columnDescriptor->srctableid
-						&& columnData->srccolumnid == piggyback->resultStatistics->columnStatistics[i].columnDescriptor->srccolumnid)
-					break;
-			}
 
 			// only write values, if the selected field is part of the result table
 			if (i < piggyback->numberOfAttributes)
