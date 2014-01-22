@@ -258,6 +258,13 @@ int hashset_add_string(hashset_t set, char* string) {
 	return rv;
 }
 
+int hashset_add_string_combination(hashset_t set, char* string1, char* string2) {
+	void* item = hash(string1) + (hash(string2) << 5);
+	int rv = hashset_add_member(set, item);
+	maybe_rehash(set);
+	return rv;
+}
+
 int hashset_add_integer(hashset_t set, void *item) {
 	int rv = hashset_add_member(set, item);
 	maybe_rehash(set);

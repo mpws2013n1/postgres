@@ -710,25 +710,7 @@ void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to, cha
 	}
 	index += to - from - 1;
 
-	//printf("FD: addtoColCombArray %d: from: %d, valueConcat: %s, to: %d, value: %s \n", index, from, valueToConcat, to, value);
-
-	const size_t v1Length = strlen(valueToConcat);
-	const size_t v2Length = strlen(value);
-	const size_t totalLength = v1Length + v2Length;
-
-	char * const strBuf = malloc(totalLength + 1);
-	if (strBuf == NULL) {
-		fprintf(stderr, "malloc failed\n");
-		exit(EXIT_FAILURE);
-	}
-	//TODO add delimeter
-	strcpy(strBuf, valueToConcat);
-	strcpy(strBuf + v1Length, value);
-
-	//printf("FD: fill ColCombinationArray on index %d with content %s (Merged from %s and %s) \n",index,strBuf,valueToConcat,value);
-	hashset_add_string(piggyback->twoColumnsCombinations[index], strBuf);
-
-	//free(strBuf);
+	hashset_add_string_combination(piggyback->twoColumnsCombinations[index], valueToConcat, value);
 }
 
 /* ----------------------------------------------------------------
