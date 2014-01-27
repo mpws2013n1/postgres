@@ -661,7 +661,7 @@ ExecProcNode(PlanState *node) {
 						if (!piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal) {
 							hashset_add_integer(piggyback->distinctValues[i], value);
 							if (hashset_num_items(piggyback->distinctValues)
-									== piggyback->resultStatistics->columnStatistics[i].distinct_status) //TODO make sure there is the actual number in here, not the status
+									== piggyback->resultStatistics->columnStatistics[i].n_distinct) //TODO make sure there is the actual number in here, not the status
 								piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = TRUE;
 						}
 						break;
@@ -684,7 +684,7 @@ ExecProcNode(PlanState *node) {
 						if (!piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal) {
 							hashset_add_string(piggyback->distinctValues[i], piggyback->slotValues[i]);
 							if (hashset_num_items(piggyback->distinctValues[i])
-									== piggyback->resultStatistics->columnStatistics[i].distinct_status)
+									== piggyback->resultStatistics->columnStatistics[i].n_distinct)
 								piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = TRUE;
 						}
 						break;
