@@ -51,8 +51,8 @@ void printFunctionalDependencies(StringInfoData* buf) {
 		int j;
 		for (j = i + 1; j <= piggyback->numberOfAttributes; j++) {
 			if (j != i) {
-				int distinctCountI = piggyback->resultStatistics->columnStatistics[i-1].distinct_status;
-				int distinctCountJ = piggyback->resultStatistics->columnStatistics[j-1].distinct_status;
+				int distinctCountI = piggyback->resultStatistics->columnStatistics[i-1].n_distinct;
+				int distinctCountJ = piggyback->resultStatistics->columnStatistics[j-1].n_distinct;
 
 				// Skip if distinct count of one col equal zero, e.g. col attribute type not supported
 				if(distinctCountI * distinctCountJ == 0) {
@@ -115,7 +115,7 @@ void printSingleColumnStatistics(StringInfoData* buf) {
 
 	for (i = 0; i < piggyback->numberOfAttributes; i++) {
 		char * columnName = piggyback->resultStatistics->columnStatistics[i].columnDescriptor->rescolumnname;
-		float4 distinctValuesCount = piggyback->resultStatistics->columnStatistics[i].distinct_status;
+		float4 distinctValuesCount = piggyback->resultStatistics->columnStatistics[i].n_distinct;
 		// own calculation
 		if (piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal == 0) {
 			distinctValuesCount = (float4) hashset_num_items(piggyback->distinctValues[i]);
@@ -131,7 +131,7 @@ void printSingleColumnStatistics(StringInfoData* buf) {
 		// *((int*)(piggyback->resultStatistics->columnStatistics[i].minValue))
 
 		// Write distinct values for FD calculation
-		piggyback->resultStatistics->columnStatistics[i].distinct_status = distinctValuesCount;
+		piggyback->resultStatistics->columnStatistics[i].n_distinct = distinctValuesCount;
 
 		//int minValue = *((int*)(piggyback->resultStatistics->columnStatistics[i].minValue));
 		int minValue = *((int*)(piggyback->resultStatistics->columnStatistics[i].minValueTemp));
@@ -256,6 +256,13 @@ unsigned long hash(unsigned char *str) {
 
 int hashset_add_string(hashset_t set, char* string) {
 	void* item = hash(string);
+	int rv = hashset_add_member(set, item);
+	maybe_rehash(set);
+	return rv;
+}
+
+int hashset_add_string_combination(hashset_t set, char* string1, char* string2) {
+	void* item = hash(string1) + (hash(string2) << 5);
 	int rv = hashset_add_member(set, item);
 	maybe_rehash(set);
 	return rv;
