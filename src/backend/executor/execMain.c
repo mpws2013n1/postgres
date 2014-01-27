@@ -994,16 +994,15 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 	planstate = ExecInitNode(plan, estate, eflags);
 
 	if (plan->targetlist != NULL) {
-		// Create a hash table for one column each.
 		ListCell *tlist;
 		int i = 0;
 		foreach(tlist, plan->targetlist)
 		{
 			TargetEntry *tle = (TargetEntry *) lfirst(tlist);
 			char *name = tle->resname;
-
 			// the name seems to be written inside of ExecInitNode
 			piggyback->resultStatistics->columnStatistics[i].columnDescriptor->rescolumnname = name;
+
 			int useDistinctStatsFromBaseStats = !nodeHasFilter(planstate);
 			//useDistinctStatsFromBaseStats = 0;
 			if (piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal == 0 && useDistinctStatsFromBaseStats == 1) {
@@ -1017,8 +1016,8 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 				if (HeapTupleIsValid(statsTuple) && HeapTupleIsValid(relTuple)) {
 					Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
 					float4 n_distinct = statStruct->stadistinct;
-					volatile Form_pg_class pg_class = (Form_pg_class) GETSTRUCT(relTuple);
-					volatile float4 numTuple  = ((Form_pg_class) GETSTRUCT(relTuple))->reltuples;
+					Form_pg_class pg_class = (Form_pg_class) GETSTRUCT(relTuple);
+					float4 numTuple  = ((Form_pg_class) GETSTRUCT(relTuple))->reltuples;
 
 					if (-1 == n_distinct) {
 						piggyback->resultStatistics->columnStatistics[i].n_distinct = numTuple;
