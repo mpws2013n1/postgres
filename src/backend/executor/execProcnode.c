@@ -604,11 +604,10 @@ ExecProcNode(PlanState *node) {
 
 			int i;
 			for (i = 0; i < piggyback->numberOfAttributes; i++) {
-				be_PGColumnStatistic columnStatistic =
-						piggyback->resultStatistics->columnStatistics[i];
 
-				if(!(columnStatistic.minValueIsFinal && columnStatistic.maxValueIsFinal &&
-						columnStatistic.n_distinctIsFinal)) { //TODO add mostFrequentValueIsFinal if ever implemented
+				if(!(piggyback->resultStatistics->columnStatistics[i].minValueIsFinal
+						&& piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal &&
+						piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal)) { //TODO add mostFrequentValueIsFinal if ever implemented
 					datum = slot_getattr(result, i + 1, &isNull);
 
 					if (isNull) {
@@ -624,7 +623,7 @@ ExecProcNode(PlanState *node) {
 					case INT2OID:
 					case INT2VECTOROID:
 					case INT4OID: { // Int
-						columnStatistic.isNumeric = 1;
+						piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
 						int *val_pntr = (int*) malloc(sizeof(int));
 						int value = (int) (datum);
 						*val_pntr = value;
@@ -634,22 +633,23 @@ ExecProcNode(PlanState *node) {
 						sprintf(cvalue, "%d", value);
 						piggyback->slotValues[i] = cvalue;
 
-						if (value < *((int*)(columnStatistic.minValueTemp))) {
-							printf("Min if");
-							columnStatistic.minValueTemp = val_pntr;
-							if (columnStatistic.minValueTemp == columnStatistic.minValue)
-								columnStatistic.minValueIsFinal = TRUE;
+						if (value < *((int*)(piggyback->resultStatistics->columnStatistics[i].minValueTemp))) {
+							piggyback->resultStatistics->columnStatistics[i].minValueTemp = val_pntr;
+							if (piggyback->resultStatistics->columnStatistics[i].minValueTemp
+									== piggyback->resultStatistics->columnStatistics[i].minValue)
+								piggyback->resultStatistics->columnStatistics[i].minValueIsFinal = TRUE;
 						}
-						if (value > *((int*)(columnStatistic.maxValueTemp))) {
-							printf("Max if");
-							columnStatistic.maxValueTemp = val_pntr;
-							if(columnStatistic.maxValueTemp == columnStatistic.maxValue)
-								columnStatistic.maxValueIsFinal = TRUE;
+						if (value > *((int*)(piggyback->resultStatistics->columnStatistics[i].maxValueTemp))) {
+							piggyback->resultStatistics->columnStatistics[i].maxValueTemp = val_pntr;
+							if(piggyback->resultStatistics->columnStatistics[i].maxValueTemp
+									== piggyback->resultStatistics->columnStatistics[i].maxValue)
+								piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal = TRUE;
 						}
-						if (!columnStatistic.n_distinctIsFinal) {
+						if (!piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal) {
 							hashset_add_integer(piggyback->distinctValues[i], value);
-							if (hashset_num_items(piggyback->distinctValues) == columnStatistic.distinct_status) //TODO make sure there is the actual number in here, not the status
-								columnStatistic.n_distinctIsFinal = TRUE;
+							if (hashset_num_items(piggyback->distinctValues)
+									== piggyback->resultStatistics->columnStatistics[i].distinct_status) //TODO make sure there is the actual number in here, not the status
+								piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = TRUE;
 						}
 						break;
 					}
@@ -667,11 +667,12 @@ ExecProcNode(PlanState *node) {
 					case VARCHAROID: { // Varchar
 						piggyback->slotValues[i] = TextDatumGetCString(datum);
 
-						columnStatistic.isNumeric = 0;
-						if (!columnStatistic.n_distinctIsFinal) {
+						piggyback->resultStatistics->columnStatistics[i].isNumeric = 0;
+						if (!piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal) {
 							hashset_add_string(piggyback->distinctValues[i], piggyback->slotValues[i]);
-							if (hashset_num_items(piggyback->distinctValues[i]) == columnStatistic.distinct_status)
-								columnStatistic.n_distinctIsFinal = TRUE;
+							if (hashset_num_items(piggyback->distinctValues[i])
+									== piggyback->resultStatistics->columnStatistics[i].distinct_status)
+								piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = TRUE;
 						}
 						break;
 					}
