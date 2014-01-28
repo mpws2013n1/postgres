@@ -1009,34 +1009,36 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 			// the name seems to be written inside of ExecInitNode
 			piggyback->resultStatistics->columnStatistics[i].columnDescriptor->rescolumnname = name;
 
-			int useDistinctStatsFromBaseStats = !nodeHasFilter(planstate);
-			//useDistinctStatsFromBaseStats = 0;
-			if (piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal == 0 && useDistinctStatsFromBaseStats == 1) {
-				unsigned int relOid = tle->resorigtbl;
-				int attnum = get_attnum(relOid, name);
-				HeapTuple statsTuple = SearchSysCache3(STATRELATTINH,
-						ObjectIdGetDatum(relOid), Int16GetDatum(attnum),
-						BoolGetDatum(false));
-				HeapTuple relTuple = SearchSysCache1(RELOID, ObjectIdGetDatum(relOid));
+			unsigned int relOid = tle->resorigtbl;
+			int attnum = get_attnum(relOid, name);
+			HeapTuple statsTuple = SearchSysCache3(STATRELATTINH,
+					ObjectIdGetDatum(relOid), Int16GetDatum(attnum),
+					BoolGetDatum(false));
+			HeapTuple relTuple = SearchSysCache1(RELOID, ObjectIdGetDatum(relOid));
 
-				if (HeapTupleIsValid(statsTuple) && HeapTupleIsValid(relTuple)) {
-					Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
-					float4 n_distinct = statStruct->stadistinct;
-					Form_pg_class pg_class = (Form_pg_class) GETSTRUCT(relTuple);
-					float4 numTuple  = ((Form_pg_class) GETSTRUCT(relTuple))->reltuples;
+			if (HeapTupleIsValid(statsTuple) && HeapTupleIsValid(relTuple)) {
+				Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
+				float4 n_distinct = statStruct->stadistinct;
+				Form_pg_class pg_class = (Form_pg_class) GETSTRUCT(relTuple);
+				float4 numTuple  = ((Form_pg_class) GETSTRUCT(relTuple))->reltuples;
 
-					if (-1 == n_distinct) {
-						piggyback->resultStatistics->columnStatistics[i].n_distinct = numTuple;
-					} else if (n_distinct < 0 && n_distinct > -1) {
-						piggyback->resultStatistics->columnStatistics[i].n_distinct = numTuple * n_distinct * -1;
-					} else {
-						piggyback->resultStatistics->columnStatistics[i].n_distinct = n_distinct;
-					}
-
-					ReleaseSysCache(statsTuple);
-					ReleaseSysCache(relTuple);
+				if (-1 == n_distinct) {
+					piggyback->resultStatistics->columnStatistics[i].n_distinct = numTuple;
+				} else if (n_distinct < 0 && n_distinct > -1) {
+					piggyback->resultStatistics->columnStatistics[i].n_distinct = numTuple * n_distinct * -1;
+				} else {
+					piggyback->resultStatistics->columnStatistics[i].n_distinct = n_distinct;
 				}
+
+				ReleaseSysCache(statsTuple);
+				ReleaseSysCache(relTuple);
+			} else {
+				piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = 0;
 			}
+
+			piggyback->resultStatistics->columnStatistics[i].minValueIsFinal = 0;
+			piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal = 0;
+			piggyback->resultStatistics->columnStatistics[i].mostFrequentValueIsFinal = 0;
 			i++;
 		}
 
