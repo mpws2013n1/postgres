@@ -936,8 +936,8 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 		int cc = 0;
 		for(;cc<columnCombinationsCount;cc++){
 			HASHCTL* uselessHashInfo = (HASHCTL*)(malloc(sizeof(HASHCTL)));
-			char* hashTableName;
-			sprintf(hashTableName, "columnCombination%d", cc);
+			char hashTableName[15];
+			sprintf(hashTableName, "colCombi%d", cc);
 			piggyback->twoColumnsCombinations[cc] = hash_create(hashTableName, 10, uselessHashInfo, 0);
 		}
 
