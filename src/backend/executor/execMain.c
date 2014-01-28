@@ -1010,11 +1010,15 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 			piggyback->resultStatistics->columnStatistics[i].columnDescriptor->rescolumnname = name;
 
 			unsigned int relOid = tle->resorigtbl;
-			int attnum = get_attnum(relOid, name);
-			HeapTuple statsTuple = SearchSysCache3(STATRELATTINH,
-					ObjectIdGetDatum(relOid), Int16GetDatum(attnum),
-					BoolGetDatum(false));
-			HeapTuple relTuple = SearchSysCache1(RELOID, ObjectIdGetDatum(relOid));
+			HeapTuple statsTuple = NULL;
+			HeapTuple relTuple = NULL;
+			if (relOid != 0) { // This can happen for aggregate columns
+				int attnum = get_attnum(relOid, name);
+				statsTuple = SearchSysCache3(STATRELATTINH,
+						ObjectIdGetDatum(relOid), Int16GetDatum(attnum),
+						BoolGetDatum(false));
+				relTuple = SearchSysCache1(RELOID, ObjectIdGetDatum(relOid));
+			}
 
 			if (HeapTupleIsValid(statsTuple) && HeapTupleIsValid(relTuple)) {
 				Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);

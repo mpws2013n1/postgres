@@ -131,7 +131,7 @@ void buildTwoColumnCombinations(char* valueToConcat, int from, TupleTableSlot *r
 void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to, char* value);
 void LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual);
 void InvalidateStatisticsForTables(List* oldTableOids);
-
+void InvalidateStatisticsForTable(int tableOid);
 /* ------------------------------------------------------------------------
  *		ExecInitNode
  *
@@ -156,7 +156,6 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 	SeqScanState* resultAsScanState;
 	IndexScanState* resultAsIndexScan;
 	IndexOnlyScanState* resultAsIndexOnlyScan;
-	AggState* resultAsAggState;
 	List* oids = NULL;
 	int tableOid = -1;
 	/*
@@ -215,36 +214,12 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 			tableOid = resultAsScanState->ss_currentRelation->rd_id;
 		}
 
-		if (tableOid == 16674)
-		{
-			printf("resultTables: ");
-			int i = 0;
-			for (; i < piggyback->numberOfAttributes; i++)
-			{
-				printf("%d ", piggyback->resultStatistics->columnStatistics[i].columnDescriptor->srctableid);
-			}
-			printf("\n");
-//			int test = 100;
-//			int* tableOidPtr = (int*) malloc(sizeof(int));
-//			*tableOidPtr = test;
-//			piggyback->testOid = 1;
-//			piggyback->testOidPtr = tableOidPtr;
-//			printf("set test oid\n");
-		}
-
 		if (tableOid != -1)
 		{
 			int* tableOidPtr = (int*) malloc(sizeof(int));
 			*tableOidPtr = tableOid;
 			LookForFilterWithEquality(result, tableOid, result->qual);
 			piggyback->tableOids = lappend(piggyback->tableOids, tableOidPtr);
-			printf(" Seq: %d\n", tableOid);
-
-			foreach (l, piggyback->tableOids)
-			{
-				volatile void* value = lfirst(l);
-				printf("oid in Seq: %d\n", *((int*)lfirst(l)));
-			}
 		}
 		break;
 
@@ -392,28 +367,9 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 		result = (PlanState *) ExecInitGroup((Group *) node, estate, eflags);
 		break;
 
-		//TODO: Agg
+	// we do not want to invalid the statistic values, because they do not change the values from the original tables
 	case T_Agg:
-		oids = piggyback->tableOids;
-		resultAsAggState = ExecInitAgg((Agg *) node, estate, eflags);
-		result = (PlanState *) resultAsAggState;
-		int oid;
-		int listLength = 0;
-		//printf("first oid: %d\n",*((int *)linitial(piggyback->tableOids)));
-		oids = list_difference(piggyback->tableOids, oids);
-		foreach (l, oids)
-		{
-			listLength ++;
-			oid = *((int*)lfirst(l));
-			printf("oid in agg: %d\n", *((int*)lfirst(l)));
-		}
-
-		if (listLength == 1)
-		{
-			LookForFilterWithEquality(result, oid, resultAsAggState->aggs);
-		}
-		else printf("There is an Aggregation with multiple input tables\n");
-
+		result = (PlanState *) ExecInitAgg((Agg *) node, estate, eflags);
 		break;
 
 	case T_WindowAgg:
@@ -480,28 +436,31 @@ InvalidateStatisticsForTables(List* oldTableOids)
 	foreach (l, relevantTableOids)
 	{
 		int currentOid = *((int*)lfirst(l));
-		printf("oid in Join: %d\n", currentOid);
-		int i = 0;
-		for (; i < piggyback->numberOfAttributes; i++)
+		InvalidateStatisticsForTable(currentOid);
+	}
+}
+
+void
+InvalidateStatisticsForTable(int tableOid)
+{
+	int i = 0;
+	for (; i < piggyback->numberOfAttributes; i++)
+	{
+		if (tableOid == piggyback->resultStatistics->columnStatistics[i].columnDescriptor->srctableid)
 		{
-			if (currentOid == piggyback->resultStatistics->columnStatistics[i].columnDescriptor->srctableid)
-			{
-				piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = 0;
-				piggyback->resultStatistics->columnStatistics[i].minValueIsFinal = 0;
-				piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal = 0;
-				piggyback->resultStatistics->columnStatistics[i].mostFrequentValueIsFinal = 0;
-				printf("do not use known statistics for this oid\n");
-			}
+			piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = 0;
+			piggyback->resultStatistics->columnStatistics[i].minValueIsFinal = 0;
+			piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal = 0;
+			piggyback->resultStatistics->columnStatistics[i].mostFrequentValueIsFinal = 0;
+			printf("do not use known statistics for this oid\n");
 		}
 	}
-	printf("----");
 }
 
 void
 LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual)
 {
 	if (qual) {
-		volatile Aggref* exSt = (Aggref*) linitial(qual);
 		int opno = ((OpExpr*) ((ExprState*) linitial(qual))->expr)->opno;
 		int columnId = ((Var*) ((OpExpr*) ((ExprState*) linitial(qual))->expr)->args->head->data.ptr_value)->varattno;
 		be_PGAttDesc *columnData = (be_PGAttDesc*) malloc(sizeof(be_PGAttDesc));
@@ -515,8 +474,6 @@ LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual)
 					&& columnData->srccolumnid == piggyback->resultStatistics->columnStatistics[i].columnDescriptor->srccolumnid)
 				break;
 		}
-
-		printf("-----------\n");
 
 		if(opno == 94 || opno == 96 || opno == 410 || opno == 416 || opno == 1862 || opno == 1868 || opno == 15 || opno == 532 || opno == 533) { // it is a equality like number_of_tracks = 3
 			int numberOfAttributes = result->plan->targetlist->length;
@@ -548,7 +505,10 @@ LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual)
 				printf("there are statistics results from the selection that are not part of the result table\n");
 			}
 		}
-		else printf("this opno is no equality: %d (for column id %d)\n", opno, columnId);
+		else {
+			printf("this opno is no equality: %d (for column id %d)\n", opno, columnId);
+			InvalidateStatisticsForTable(tableOid);
+		}
 	}
 }
 
