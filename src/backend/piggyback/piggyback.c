@@ -133,8 +133,11 @@ void printSingleColumnStatistics(StringInfoData* buf) {
 		// Write distinct values for FD calculation
 		piggyback->resultStatistics->columnStatistics[i].n_distinct = distinctValuesCount;
 
-		int minValue = *((int*)(piggyback->resultStatistics->columnStatistics[i].minValue));
-		int maxValue = *((int*)(piggyback->resultStatistics->columnStatistics[i].maxValue));
+		//int minValue = *((int*)(piggyback->resultStatistics->columnStatistics[i].minValue));
+		int minValue = *((int*)(piggyback->resultStatistics->columnStatistics[i].minValueTemp));
+		//int maxValue = *((int*)(piggyback->resultStatistics->columnStatistics[i].maxValue));
+		int maxValue = *((int*)(piggyback->resultStatistics->columnStatistics[i].maxValueTemp));
+
 		int isNumeric = piggyback->resultStatistics->columnStatistics[i].isNumeric;
 
 		if(isNumeric) {

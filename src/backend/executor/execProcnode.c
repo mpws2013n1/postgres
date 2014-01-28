@@ -617,66 +617,82 @@ ExecProcNode(PlanState *node) {
 
 			int i;
 			for (i = 0; i < piggyback->numberOfAttributes; i++) {
-				datum = slot_getattr(result, i + 1, &isNull);
-				if (isNull) {
-					piggyback->slotValues[i] = "";
-					continue;
-				}
 
-				// Use data type aware conversion.
-				Form_pg_attribute attr = attrList[i];
+				if(!(piggyback->resultStatistics->columnStatistics[i].minValueIsFinal
+						&& piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal &&
+						piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal)) { //TODO add mostFrequentValueIsFinal if ever implemented
+					datum = slot_getattr(result, i + 1, &isNull);
 
-				switch (attr->atttypid) {
-				case INT8OID:
-				case INT2OID:
-				case INT2VECTOROID:
-				case INT4OID: { // Int
-					piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
-					int *val_pntr = (int*) malloc(sizeof(int));
-					int value = (int) (datum);
-					*val_pntr = value;
-
-					// Write temporary slot value for FD calculation
-					char* cvalue = calloc(20, sizeof(char));
-					sprintf(cvalue, "%d", value);
-					piggyback->slotValues[i] = cvalue;
-
-					if (!piggyback->resultStatistics->columnStatistics[i].minValueIsFinal)
-						if (value < *((int*)(piggyback->resultStatistics->columnStatistics[i].minValue))
-								|| *((int*)(piggyback->resultStatistics->columnStatistics[i].minValue)) == INT_MAX)
-							piggyback->resultStatistics->columnStatistics[i].minValue = val_pntr;
-					if (!piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal)
-						if (value > *((int*)(piggyback->resultStatistics->columnStatistics[i].maxValue))
-								|| *((int*)(piggyback->resultStatistics->columnStatistics[i].maxValue)) == INT_MIN)
-							piggyback->resultStatistics->columnStatistics[i].maxValue = val_pntr;
-					if (piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal == 0) {
-						hashset_add_integer(piggyback->distinctValues[i], value);
+					if (isNull) {
+						piggyback->slotValues[i] = "";
+						continue;
 					}
-					break;
-				}
-				case NUMERICOID: { // Decimal
-					//piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
-					int value = (float) (datum);
-					//printf("Numeric: %f, casted: %d \n",(float)(datum),value);
-					char* cvalue = calloc(20, sizeof(char));
-					sprintf(cvalue, "%d", value);
-					piggyback->slotValues[i] = cvalue;
 
-					break;
-				}
-				case BPCHAROID:
-				case VARCHAROID: { // Varchar
-					piggyback->slotValues[i] = TextDatumGetCString(datum);
+					// Use data type aware conversion.
+					Form_pg_attribute attr = attrList[i];
 
-					piggyback->resultStatistics->columnStatistics[i].isNumeric = 0;
-					if (piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal == 0) {
-						hashset_add_string(piggyback->distinctValues[i], piggyback->slotValues[i]);
+					switch (attr->atttypid) {
+					case INT8OID:
+					case INT2OID:
+					case INT2VECTOROID:
+					case INT4OID: { // Int
+						piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
+						int *val_pntr = (int*) malloc(sizeof(int));
+						int value = (int) (datum);
+						*val_pntr = value;
+
+						// Write temporary slot value for FD calculation
+						char* cvalue = calloc(20, sizeof(char));
+						sprintf(cvalue, "%d", value);
+						piggyback->slotValues[i] = cvalue;
+
+						if (value < *((int*)(piggyback->resultStatistics->columnStatistics[i].minValueTemp))) {
+							piggyback->resultStatistics->columnStatistics[i].minValueTemp = val_pntr;
+							if (piggyback->resultStatistics->columnStatistics[i].minValueTemp
+									== piggyback->resultStatistics->columnStatistics[i].minValue)
+								piggyback->resultStatistics->columnStatistics[i].minValueIsFinal = TRUE;
+						}
+						if (value > *((int*)(piggyback->resultStatistics->columnStatistics[i].maxValueTemp))) {
+							piggyback->resultStatistics->columnStatistics[i].maxValueTemp = val_pntr;
+							if(piggyback->resultStatistics->columnStatistics[i].maxValueTemp
+									== piggyback->resultStatistics->columnStatistics[i].maxValue)
+								piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal = TRUE;
+						}
+						if (!piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal) {
+							hashset_add_integer(piggyback->distinctValues[i], value);
+							if (hashset_num_items(piggyback->distinctValues)
+									== piggyback->resultStatistics->columnStatistics[i].n_distinct) //TODO make sure there is the actual number in here, not the status
+								piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = TRUE;
+						}
+						break;
 					}
-					break;
-				}
-				default:
-					piggyback->slotValues[i] = "";
-					break;
+					case NUMERICOID: { // Decimal
+						//piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
+						int value = (float) (datum);
+						//printf("Numeric: %f, casted: %d \n",(float)(datum),value);
+						char* cvalue = calloc(20, sizeof(char));
+						sprintf(cvalue, "%d", value);
+						piggyback->slotValues[i] = cvalue;
+
+						break;
+					}
+					case BPCHAROID:
+					case VARCHAROID: { // Varchar
+						piggyback->slotValues[i] = TextDatumGetCString(datum);
+
+						piggyback->resultStatistics->columnStatistics[i].isNumeric = 0;
+						if (!piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal) {
+							hashset_add_string(piggyback->distinctValues[i], piggyback->slotValues[i]);
+							if (hashset_num_items(piggyback->distinctValues[i])
+									== piggyback->resultStatistics->columnStatistics[i].n_distinct)
+								piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = TRUE;
+						}
+						break;
+					}
+					default:
+						piggyback->slotValues[i] = "";
+						break;
+					}
 				}
 			}
 			for (i = 0; i < piggyback->numberOfAttributes; i++) {

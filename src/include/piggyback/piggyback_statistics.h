@@ -28,8 +28,10 @@ typedef struct be_PGColumnStatistic {
 	int n_distinct;
 	int n_distinctIsFinal;			//Boolean
 	void *minValue;
+	void *minValueTemp;
 	int minValueIsFinal;			//Boolean
 	void *maxValue;
+	void *maxValueTemp;
 	int maxValueIsFinal;			//Boolean
 	void *mostFrequentValue;
 	int mostFrequentValueIsFinal;	//Boolean
