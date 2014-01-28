@@ -130,6 +130,7 @@ extern Piggyback *piggyback;
 void buildTwoColumnCombinations(char* valueToConcat, int from, TupleTableSlot *result);
 void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to, char* value);
 void LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual);
+void InvalidateStatisticsForTables(List* oldTableOids);
 
 /* ------------------------------------------------------------------------
  *		ExecInitNode
@@ -358,47 +359,21 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitNestLoop((NestLoop *) node, estate,
 				eflags);
-		//printf("first oid: %d\n",*((int *)linitial(piggyback->tableOids)));
-		oids = list_difference(piggyback->tableOids, oids);
-		foreach (l, oids)
-		{
-			printf("oid in nestLoop: %d\n", *((int*)lfirst(l)));
-		}
-		printf("---\n");
+		InvalidateStatisticsForTables(oids);
 		break;
 
 	case T_MergeJoin:
 		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitMergeJoin((MergeJoin *) node, estate,
 				eflags);
-		//printf("first oid: %d\n",*((int *)linitial(piggyback->tableOids)));
-		oids = list_difference(piggyback->tableOids, oids);
-		foreach (l, oids)
-		{
-			printf("oid in nestLoop: %d\n", *((int*)lfirst(l)));
-		}
-		printf("---\n");
-		break;
+		InvalidateStatisticsForTables(oids);
 		break;
 
 	case T_HashJoin:
 		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitHashJoin((HashJoin *) node, estate,
 						eflags);
-		//printf("first oid: %d\n",*((int *)linitial(piggyback->tableOids)));
-		oids = list_difference(piggyback->tableOids, oids);
-		foreach (l, piggyback->tableOids)
-		{
-			volatile void* value = lfirst(l);
-			printf("oid in hashJoin: %d\n", *((int*)lfirst(l)));
-		}
-
-		foreach (l, oids)
-		{
-			volatile void* value = lfirst(l);
-			printf("oid in hashJoin: %d\n", *((int*)lfirst(l)));
-		}
-		printf("---\n");
+		InvalidateStatisticsForTables(oids);
 		break;
 
 		/*
@@ -417,6 +392,7 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 		result = (PlanState *) ExecInitGroup((Group *) node, estate, eflags);
 		break;
 
+		//TODO: Agg
 	case T_Agg:
 		oids = piggyback->tableOids;
 		resultAsAggState = ExecInitAgg((Agg *) node, estate, eflags);
@@ -493,6 +469,32 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 		result->instrument = InstrAlloc(1, estate->es_instrument);
 
 	return result;
+}
+
+void
+InvalidateStatisticsForTables(List* oldTableOids)
+{
+	List* relevantTableOids = NULL;
+	ListCell* l;
+	relevantTableOids = list_difference(piggyback->tableOids, oldTableOids);
+	foreach (l, relevantTableOids)
+	{
+		int currentOid = *((int*)lfirst(l));
+		printf("oid in Join: %d\n", currentOid);
+		int i = 0;
+		for (; i < piggyback->numberOfAttributes; i++)
+		{
+			if (currentOid == piggyback->resultStatistics->columnStatistics[i].columnDescriptor->srctableid)
+			{
+				piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = 0;
+				piggyback->resultStatistics->columnStatistics[i].minValueIsFinal = 0;
+				piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal = 0;
+				piggyback->resultStatistics->columnStatistics[i].mostFrequentValueIsFinal = 0;
+				printf("do not use known statistics for this oid\n");
+			}
+		}
+	}
+	printf("----");
 }
 
 void
@@ -803,9 +805,9 @@ ExecProcNode(PlanState *node) {
 					}
 				}
 			}
-			for (i = 0; i < piggyback->numberOfAttributes; i++) {
-				buildTwoColumnCombinations(piggyback->slotValues[i], i + 1, result);
-			}
+//			for (i = 0; i < piggyback->numberOfAttributes; i++) {
+//				buildTwoColumnCombinations(piggyback->slotValues[i], i + 1, result);
+//			}
 		}
 	}
 

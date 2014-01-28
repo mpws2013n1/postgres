@@ -980,6 +980,11 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 			*maxValue = INT_MIN;
 			*maxValueTemp = INT_MIN;
 
+			piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = 1;
+			piggyback->resultStatistics->columnStatistics[i].minValueIsFinal = 1;
+			piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal = 1;
+			piggyback->resultStatistics->columnStatistics[i].mostFrequentValueIsFinal = 1;
+
 			piggyback->resultStatistics->columnStatistics[i].n_distinct = -2;
 			piggyback->resultStatistics->columnStatistics[i].minValue = minValue;
 			piggyback->resultStatistics->columnStatistics[i].maxValue = maxValue;
