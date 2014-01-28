@@ -1023,16 +1023,19 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 
 			if (HeapTupleIsValid(statsTuple) && HeapTupleIsValid(relTuple)) {
 				Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
-				float4 n_distinct = statStruct->stadistinct;
 				Form_pg_class pg_class = (Form_pg_class) GETSTRUCT(relTuple);
 				float4 numTuple  = ((Form_pg_class) GETSTRUCT(relTuple))->reltuples;
 
-				if (-1 == n_distinct) {
-					piggyback->resultStatistics->columnStatistics[i].n_distinct = numTuple;
-				} else if (n_distinct < 0 && n_distinct > -1) {
-					piggyback->resultStatistics->columnStatistics[i].n_distinct = numTuple * n_distinct * -1;
-				} else {
-					piggyback->resultStatistics->columnStatistics[i].n_distinct = n_distinct;
+				// do not read distinct values from base statistics if there are already valid values for n_distinct
+				if (-2 == piggyback->resultStatistics->columnStatistics[i].n_distinct) {
+					float4 n_distinct = statStruct->stadistinct;
+					if (-1 == n_distinct) {
+						piggyback->resultStatistics->columnStatistics[i].n_distinct = numTuple;
+					} else if (n_distinct < 0 && n_distinct > -1) {
+						piggyback->resultStatistics->columnStatistics[i].n_distinct = numTuple * n_distinct * -1;
+					} else {
+						piggyback->resultStatistics->columnStatistics[i].n_distinct = n_distinct;
+					}
 				}
 
 				ReleaseSysCache(statsTuple);

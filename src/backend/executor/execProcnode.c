@@ -235,16 +235,10 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 
 		if (tableOid != -1)
 		{
+			int* tableOidPtr = (int*) malloc(sizeof(int));
+			*tableOidPtr = tableOid;
 			LookForFilterWithEquality(result, tableOid, resultAsIndexScan->indexqualorig);
-			piggyback->tableOids = lappend(piggyback->tableOids, &tableOid);
-			printf(" IndexScan: %d\n", tableOid);
-
-
-			foreach (l, piggyback->tableOids)
-			{
-				volatile void* value = lfirst(l);
-				printf("oid in IndexScan: %d\n", *((int*)lfirst(l)));
-			}
+			piggyback->tableOids = lappend(piggyback->tableOids, tableOidPtr);
 		}
 		break;
 
@@ -261,15 +255,10 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 
 		if (tableOid != -1)
 		{
+			int* tableOidPtr = (int*) malloc(sizeof(int));
+			*tableOidPtr = tableOid;
 			LookForFilterWithEquality(result, tableOid, resultAsIndexOnlyScan->indexqual);
-			piggyback->tableOids = lappend(piggyback->tableOids, &tableOid);
-			printf(" IndexOnly: %d\n", tableOid);
-
-			foreach (l, piggyback->tableOids)
-			{
-				volatile void* value = lfirst(l);
-				printf("oid in IndexOnlyScan: %d\n", *((int*)lfirst(l)));
-			}
+			piggyback->tableOids = lappend(piggyback->tableOids, tableOidPtr);
 		}
 		break;
 
@@ -448,11 +437,11 @@ InvalidateStatisticsForTable(int tableOid)
 	{
 		if (tableOid == piggyback->resultStatistics->columnStatistics[i].columnDescriptor->srctableid)
 		{
+			// this columnStatistic is obsolete
 			piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = 0;
 			piggyback->resultStatistics->columnStatistics[i].minValueIsFinal = 0;
 			piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal = 0;
 			piggyback->resultStatistics->columnStatistics[i].mostFrequentValueIsFinal = 0;
-			printf("do not use known statistics for this oid\n");
 		}
 	}
 }
@@ -507,6 +496,7 @@ LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual)
 		}
 		else {
 			printf("this opno is no equality: %d (for column id %d)\n", opno, columnId);
+			// found a selection, therefore we cannot use old statistics
 			InvalidateStatisticsForTable(tableOid);
 		}
 	}
