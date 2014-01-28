@@ -261,7 +261,9 @@ pqParseInput3(PGconn *conn)
 				}
 
 
-					conn->result->statistics = statistics;
+					if (conn->result) {
+						conn->result->statistics = statistics;
+					}
 					break;
 				case 'C':		/* command complete */
 					if (pqGets(&conn->workBuffer, conn))

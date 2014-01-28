@@ -54,7 +54,7 @@ range_typanalyze(PG_FUNCTION_ARGS)
 	stats->compute_stats = compute_range_stats;
 	stats->extra_data = typcache;
 	/* same as in std_typanalyze */
-	stats->minrows = 300 * attr->attstattarget;
+	stats->minrows = 300000 * attr->attstattarget;
 
 	PG_RETURN_BOOL(true);
 }
