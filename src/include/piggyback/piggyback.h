@@ -73,6 +73,7 @@ typedef struct _piggyback {
 	char **slotValues;
 	int numberOfAttributes;
 	int numberOfTuples;
+	List* tableOids;
 } Piggyback;
 
 extern void initPiggyback();

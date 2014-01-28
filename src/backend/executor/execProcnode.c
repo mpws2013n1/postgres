@@ -155,6 +155,8 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 	SeqScanState* resultAsScanState;
 	IndexScanState* resultAsIndexScan;
 	IndexOnlyScanState* resultAsIndexOnlyScan;
+	AggState* resultAsAggState;
+	List* oids = NULL;
 	int tableOid = -1;
 	/*
 	 * do nothing when we get to the end of a leaf on tree.
@@ -212,9 +214,36 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 			tableOid = resultAsScanState->ss_currentRelation->rd_id;
 		}
 
+		if (tableOid == 16674)
+		{
+			printf("resultTables: ");
+			int i = 0;
+			for (; i < piggyback->numberOfAttributes; i++)
+			{
+				printf("%d ", piggyback->resultStatistics->columnStatistics[i].columnDescriptor->srctableid);
+			}
+			printf("\n");
+//			int test = 100;
+//			int* tableOidPtr = (int*) malloc(sizeof(int));
+//			*tableOidPtr = test;
+//			piggyback->testOid = 1;
+//			piggyback->testOidPtr = tableOidPtr;
+//			printf("set test oid\n");
+		}
+
 		if (tableOid != -1)
 		{
+			int* tableOidPtr = (int*) malloc(sizeof(int));
+			*tableOidPtr = tableOid;
 			LookForFilterWithEquality(result, tableOid, result->qual);
+			piggyback->tableOids = lappend(piggyback->tableOids, tableOidPtr);
+			printf(" Seq: %d\n", tableOid);
+
+			foreach (l, piggyback->tableOids)
+			{
+				volatile void* value = lfirst(l);
+				printf("oid in Seq: %d\n", *((int*)lfirst(l)));
+			}
 		}
 		break;
 
@@ -231,6 +260,15 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 		if (tableOid != -1)
 		{
 			LookForFilterWithEquality(result, tableOid, resultAsIndexScan->indexqualorig);
+			piggyback->tableOids = lappend(piggyback->tableOids, &tableOid);
+			printf(" IndexScan: %d\n", tableOid);
+
+
+			foreach (l, piggyback->tableOids)
+			{
+				volatile void* value = lfirst(l);
+				printf("oid in IndexScan: %d\n", *((int*)lfirst(l)));
+			}
 		}
 		break;
 
@@ -248,70 +286,119 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 		if (tableOid != -1)
 		{
 			LookForFilterWithEquality(result, tableOid, resultAsIndexOnlyScan->indexqual);
+			piggyback->tableOids = lappend(piggyback->tableOids, &tableOid);
+			printf(" IndexOnly: %d\n", tableOid);
+
+			foreach (l, piggyback->tableOids)
+			{
+				volatile void* value = lfirst(l);
+				printf("oid in IndexOnlyScan: %d\n", *((int*)lfirst(l)));
+			}
 		}
 		break;
 
 	case T_BitmapIndexScan:
 		result = (PlanState *) ExecInitBitmapIndexScan((BitmapIndexScan *) node,
 				estate, eflags);
+		printf(" Bitmap ");
 		break;
 
 	case T_BitmapHeapScan:
 		result = (PlanState *) ExecInitBitmapHeapScan((BitmapHeapScan *) node,
 				estate, eflags);
+		printf(" BitmapHeap ");
 		break;
 
 	case T_TidScan:
 		result = (PlanState *) ExecInitTidScan((TidScan *) node, estate,
 				eflags);
+		printf(" Tid ");
 		break;
 
 	case T_SubqueryScan:
 		result = (PlanState *) ExecInitSubqueryScan((SubqueryScan *) node,
 				estate, eflags);
+		printf(" Subquery ");
 		break;
 
 	case T_FunctionScan:
 		result = (PlanState *) ExecInitFunctionScan((FunctionScan *) node,
 				estate, eflags);
+		printf(" Function ");
 		break;
 
 	case T_ValuesScan:
 		result = (PlanState *) ExecInitValuesScan((ValuesScan *) node, estate,
 				eflags);
+		printf(" Values ");
 		break;
 
 	case T_CteScan:
 		result = (PlanState *) ExecInitCteScan((CteScan *) node, estate,
 				eflags);
+		printf(" Cte ");
 		break;
 
 	case T_WorkTableScan:
 		result = (PlanState *) ExecInitWorkTableScan((WorkTableScan *) node,
 				estate, eflags);
+		printf(" WorkTable ");
 		break;
 
 	case T_ForeignScan:
 		result = (PlanState *) ExecInitForeignScan((ForeignScan *) node, estate,
 				eflags);
+		printf(" Foreign ");
 		break;
 
 		/*
 		 * join nodes
 		 */
 	case T_NestLoop:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitNestLoop((NestLoop *) node, estate,
 				eflags);
+		//printf("first oid: %d\n",*((int *)linitial(piggyback->tableOids)));
+		oids = list_difference(piggyback->tableOids, oids);
+		foreach (l, oids)
+		{
+			printf("oid in nestLoop: %d\n", *((int*)lfirst(l)));
+		}
+		printf("---\n");
 		break;
 
 	case T_MergeJoin:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitMergeJoin((MergeJoin *) node, estate,
 				eflags);
+		//printf("first oid: %d\n",*((int *)linitial(piggyback->tableOids)));
+		oids = list_difference(piggyback->tableOids, oids);
+		foreach (l, oids)
+		{
+			printf("oid in nestLoop: %d\n", *((int*)lfirst(l)));
+		}
+		printf("---\n");
+		break;
 		break;
 
 	case T_HashJoin:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitHashJoin((HashJoin *) node, estate,
-				eflags);
+						eflags);
+		//printf("first oid: %d\n",*((int *)linitial(piggyback->tableOids)));
+		oids = list_difference(piggyback->tableOids, oids);
+		foreach (l, piggyback->tableOids)
+		{
+			volatile void* value = lfirst(l);
+			printf("oid in hashJoin: %d\n", *((int*)lfirst(l)));
+		}
+
+		foreach (l, oids)
+		{
+			volatile void* value = lfirst(l);
+			printf("oid in hashJoin: %d\n", *((int*)lfirst(l)));
+		}
+		printf("---\n");
 		break;
 
 		/*
@@ -331,7 +418,26 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 		break;
 
 	case T_Agg:
-		result = ExecInitAgg((Agg *) node, estate, eflags);
+		oids = piggyback->tableOids;
+		resultAsAggState = ExecInitAgg((Agg *) node, estate, eflags);
+		result = (PlanState *) resultAsAggState;
+		int oid;
+		int listLength = 0;
+		//printf("first oid: %d\n",*((int *)linitial(piggyback->tableOids)));
+		oids = list_difference(piggyback->tableOids, oids);
+		foreach (l, oids)
+		{
+			listLength ++;
+			oid = *((int*)lfirst(l));
+			printf("oid in agg: %d\n", *((int*)lfirst(l)));
+		}
+
+		if (listLength == 1)
+		{
+			LookForFilterWithEquality(result, oid, resultAsAggState->aggs);
+		}
+		else printf("There is an Aggregation with multiple input tables\n");
+
 		break;
 
 	case T_WindowAgg:
@@ -393,6 +499,7 @@ void
 LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual)
 {
 	if (qual) {
+		volatile Aggref* exSt = (Aggref*) linitial(qual);
 		int opno = ((OpExpr*) ((ExprState*) linitial(qual))->expr)->opno;
 		int columnId = ((Var*) ((OpExpr*) ((ExprState*) linitial(qual))->expr)->args->head->data.ptr_value)->varattno;
 		be_PGAttDesc *columnData = (be_PGAttDesc*) malloc(sizeof(be_PGAttDesc));
@@ -407,7 +514,7 @@ LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual)
 				break;
 		}
 
-		// TODO: if (i < piggyback->numberOfAttributes) set useBaseStatistics to false
+		printf("-----------\n");
 
 		if(opno == 94 || opno == 96 || opno == 410 || opno == 416 || opno == 1862 || opno == 1868 || opno == 15 || opno == 532 || opno == 533) { // it is a equality like number_of_tracks = 3
 			int numberOfAttributes = result->plan->targetlist->length;
@@ -439,6 +546,7 @@ LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual)
 				printf("there are statistics results from the selection that are not part of the result table\n");
 			}
 		}
+		else printf("this opno is no equality: %d (for column id %d)\n", opno, columnId);
 	}
 }
 

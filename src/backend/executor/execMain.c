@@ -985,6 +985,7 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 	}
 
 	// ExecInitNode needs existing piggyback->resultStatistics->columnStatistics for all result columns
+	piggyback->tableOids = NULL;
 	planstate = ExecInitNode(plan, estate, eflags);
 
 	if (plan->targetlist != NULL) {
