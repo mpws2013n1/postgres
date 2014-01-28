@@ -1,3 +1,10 @@
+# Output files
+util/q.sql
+util/r.html
+
+# Own script file
+util/run_query.sh
+
 # Global excludes across all subdirectories
 *.o
 *.so
