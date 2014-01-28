@@ -127,7 +127,7 @@
 #include <limits.h>
 
 extern Piggyback *piggyback;
-void buildTwoColumnCombinations(char* valueToConcat, int from, TupleTableSlot *result);
+void fillFDCandidateMaps();
 void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to, char* value);
 void LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual);
 
@@ -617,7 +617,6 @@ ExecProcNode(PlanState *node) {
 
 			int i;
 			for (i = 0; i < piggyback->numberOfAttributes; i++) {
-
 				if(!(piggyback->resultStatistics->columnStatistics[i].minValueIsFinal
 						&& piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal &&
 						piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal)) { //TODO add mostFrequentValueIsFinal if ever implemented
@@ -695,9 +694,7 @@ ExecProcNode(PlanState *node) {
 					}
 				}
 			}
-			for (i = 0; i < piggyback->numberOfAttributes; i++) {
-				buildTwoColumnCombinations(piggyback->slotValues[i], i + 1, result);
-			}
+			fillFDCandidateMaps();
 		}
 	}
 
@@ -707,27 +704,37 @@ ExecProcNode(PlanState *node) {
 	return result;
 }
 
-void buildTwoColumnCombinations(char* valueToConcat, int from, TupleTableSlot *result) {
+void fillFDCandidateMaps() {
 	int i;
-	if (from == piggyback->numberOfAttributes) {
-		return;
-	}
+	int blockSize = piggyback->numberOfAttributes-1;
+	for(i=0; i< piggyback->numberOfAttributes; i++){
+		int j;
 
-	for (i = from; i < piggyback->numberOfAttributes; i++) {
-		addToTwoColumnCombinationHashSet(from, valueToConcat, i + 1, piggyback->slotValues[i]);
+		for(j=0; j< piggyback->numberOfAttributes; j++){
+			if(i==j){
+				continue;
+			}
+			int indexBlock = i*blockSize;
+			int indexSummand = j>i ? j-1 : j;
+			int index = indexBlock+indexSummand;
+			HTAB* targetMap = piggyback->twoColumnsCombinations[index];
+			if(targetMap==NULL){
+				continue;
+			}else{
+				bool found;
+				char* rhs = (char*) hash_search(targetMap, piggyback->slotValues[i], HASH_FIND, &found);
+				if(found){
+					if(!rhs==piggyback->slotValues[j]){
+						piggyback->twoColumnsCombinations[index]=NULL;
+					}
+				}else{
+					&rhs = piggyback->slotValues[j];
+				}
+			}
+		}
 	}
 }
 
-void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to, char* value) {
-	int index = 0;
-	int i;
-	for (i = 1; i < from; i++) {
-		index += piggyback->numberOfAttributes - i;
-	}
-	index += to - from - 1;
-
-	hashset_add_string_combination(piggyback->twoColumnsCombinations[index], valueToConcat, value);
-}
 
 /* ----------------------------------------------------------------
  *		MultiExecProcNode

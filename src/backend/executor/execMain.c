@@ -62,6 +62,9 @@
 #include "utils/syscache.h"
 #include "utils/tqual.h"
 #include "postgres.h"
+#include "utils/hsearch.h"
+
+#include "utils/builtins.h"
 
 #include "piggyback/piggyback.h"
 #include <limits.h>
@@ -925,14 +928,17 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 
 		piggyback->distinctValues = (hashset_t*) calloc(piggyback->numberOfAttributes,sizeof(hashset_t));
 
-		int columnCombinationsCount = (int)((piggyback->numberOfAttributes*piggyback->numberOfAttributes-1)/2);
+		int columnCombinationsCount = (int)((piggyback->numberOfAttributes*piggyback->numberOfAttributes-1));
 
-		piggyback->twoColumnsCombinations = (hashset_t*) calloc(columnCombinationsCount,sizeof(hashset_t));
+		piggyback->twoColumnsCombinations = (HTAB*) calloc(columnCombinationsCount,sizeof(HTAB*));
 
 		//create column combinations
 		int cc = 0;
 		for(;cc<columnCombinationsCount;cc++){
-			piggyback->twoColumnsCombinations[cc] = hashset_create();
+			HASHCTL* uselessHashInfo = (HASHCTL*)(malloc(sizeof(HASHCTL)));
+			char* hashTableName;
+			sprintf(hashTableName, "columnCombination%d", cc);
+			piggyback->twoColumnsCombinations[cc] = hash_create(hashTableName, 10, uselessHashInfo, 0);
 		}
 
 		piggyback->resultStatistics = (be_PGStatistics*) malloc(sizeof(be_PGStatistics));
@@ -1677,8 +1683,9 @@ ExecutePlan(EState *estate,
 //piggyback helper method
 int nodeHasFilter(PlanState* node) {
 	Expr* node2 = node->qual;
-	if (node2 == NULL)
+	if (node2 == NULL){
 		return 0;
+	}
 	if (nodeTag(node2) == T_List) {
 		List* list;
 		Expr* node3;
@@ -1691,6 +1698,7 @@ int nodeHasFilter(PlanState* node) {
 		}
 		return 0;
 	}
+	return 0;
 }
 
 

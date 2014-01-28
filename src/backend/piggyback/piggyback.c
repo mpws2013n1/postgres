@@ -47,47 +47,32 @@ void printFunctionalDependencies(StringInfoData* buf) {
 
 	int fdCount = 0;
 	int i;
-	for (i = 1; i <= piggyback->numberOfAttributes; i++) {
+	int blockSize = piggyback->numberOfAttributes - 1;
+	for (i = 0; i < piggyback->numberOfAttributes; i++) {
 		int j;
-		for (j = i + 1; j <= piggyback->numberOfAttributes; j++) {
-			if (j != i) {
-				int distinctCountI = piggyback->resultStatistics->columnStatistics[i-1].n_distinct;
-				int distinctCountJ = piggyback->resultStatistics->columnStatistics[j-1].n_distinct;
 
-				// Skip if distinct count of one col equal zero, e.g. col attribute type not supported
-				if(distinctCountI * distinctCountJ == 0) {
-					continue;
-				}
+		for (j = 0; j < piggyback->numberOfAttributes; j++) {
+			if (i == j) {
+				continue;
+			}
+			int indexBlock = i * blockSize;
+			int indexSummand = j > i ? j - 1 : j;
+			int index = indexBlock + indexSummand;
 
-				int index = 0;
-				int k;
-				for (k = 1; k < i; k++) {
-					index += piggyback->numberOfAttributes - k;
-				}
-				index += (j - i - 1);
+			if (piggyback->twoColumnsCombinations[index] != NULL) {
 
-				int twoColumnCombinationOfIAndJ = (int) hashset_num_items(piggyback->twoColumnsCombinations[index]);
+				be_PGFunctionalDependency* fd = calloc(1,
+						sizeof(be_PGFunctionalDependency));
 
-				//printf("FD: column %d: distinct_count %d, column %d: distinct count %d, "
-				//		"col_combination %d distinct count: %d \n", i-1, distinctCountI, j-1, distinctCountJ, index, twoColumnCombinationOfIAndJ);
+				fd->determinants =
+						piggyback->resultStatistics->columnStatistics[i].columnDescriptor;
+				fd->dependent =
+						piggyback->resultStatistics->columnStatistics[j].columnDescriptor;
 
-				be_PGAttDesc *colIDesc = piggyback->resultStatistics->columnStatistics[i-1].columnDescriptor;
-				be_PGAttDesc *colJDesc = piggyback->resultStatistics->columnStatistics[j-1].columnDescriptor;
-
-				if (distinctCountI == twoColumnCombinationOfIAndJ) {
-					be_PGFunctionalDependency* fd = calloc(1, sizeof(be_PGFunctionalDependency));
-					fd->determinants = colIDesc;
-					fd->dependent = colJDesc;
-					piggyback->resultStatistics->functionalDependencies = lappend(piggyback->resultStatistics->functionalDependencies, fd);
-					fdCount++;
-				}
-				if (distinctCountJ == twoColumnCombinationOfIAndJ) {
-					be_PGFunctionalDependency* fd = calloc(1, sizeof(be_PGFunctionalDependency));
-					fd->determinants = colJDesc;
-					fd->dependent = colIDesc;
-					piggyback->resultStatistics->functionalDependencies = lappend(piggyback->resultStatistics->functionalDependencies, fd);
-					fdCount++;
-				}
+				piggyback->resultStatistics->functionalDependencies = lappend(
+						piggyback->resultStatistics->functionalDependencies,
+						fd);
+				fdCount++;
 			}
 		}
 	}
