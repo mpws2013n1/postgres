@@ -16,6 +16,7 @@
 #include "libpq/pqformat.h"
 #include "nodes/pg_list.h"
 #include "nodes/plannodes.h"
+#include "utils/hsearch.h"
 #include "piggyback_statistics.h";
 
 //begin stolen hashset

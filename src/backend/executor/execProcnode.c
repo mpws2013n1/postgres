@@ -727,8 +727,10 @@ void fillFDCandidateMaps() {
 					if(!rhs==piggyback->slotValues[j]){
 						piggyback->twoColumnsCombinations[index]=NULL;
 					}
-				}else{
-					&rhs = piggyback->slotValues[j];
+				} else {
+					hash_search_with_hash_value(targetMap,
+							&piggyback->slotValues[i], piggyback->slotValues[j],
+							HASH_ENTER, &found);
 				}
 			}
 		}
