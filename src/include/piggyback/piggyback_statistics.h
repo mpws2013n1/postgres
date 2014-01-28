@@ -25,11 +25,13 @@ typedef struct be_PGAttDesc
 typedef struct be_PGColumnStatistic {
 	be_PGAttDesc *columnDescriptor;
 	int isNumeric;					//Boolean
-	int distinct_status;
+	int n_distinct;
 	int n_distinctIsFinal;			//Boolean
 	void *minValue;
+	void *minValueTemp;
 	int minValueIsFinal;			//Boolean
 	void *maxValue;
+	void *maxValueTemp;
 	int maxValueIsFinal;			//Boolean
 	void *mostFrequentValue;
 	int mostFrequentValueIsFinal;	//Boolean

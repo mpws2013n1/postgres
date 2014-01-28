@@ -972,13 +972,19 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 			//initialize distinct count with -2 to signal that nothing was gathered from basestats
 
 			int *minValue = (int*) malloc(sizeof(int));
+			int *minValueTemp = (int*) malloc(sizeof(int));
 			int *maxValue = (int*) malloc(sizeof(int));
+			int *maxValueTemp = (int*) malloc(sizeof(int));
 			*minValue = INT_MAX;
+			*minValueTemp = INT_MAX;
 			*maxValue = INT_MIN;
+			*maxValueTemp = INT_MIN;
 
-			piggyback->resultStatistics->columnStatistics[i].distinct_status = -2;
+			piggyback->resultStatistics->columnStatistics[i].n_distinct = -2;
 			piggyback->resultStatistics->columnStatistics[i].minValue = minValue;
 			piggyback->resultStatistics->columnStatistics[i].maxValue = maxValue;
+			piggyback->resultStatistics->columnStatistics[i].minValueTemp = minValueTemp;
+			piggyback->resultStatistics->columnStatistics[i].maxValueTemp = maxValueTemp;
 			piggyback->resultStatistics->columnStatistics[i].isNumeric = NULL;
 			i++;
 		}
@@ -988,16 +994,15 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 	planstate = ExecInitNode(plan, estate, eflags);
 
 	if (plan->targetlist != NULL) {
-		// Create a hash table for one column each.
 		ListCell *tlist;
 		int i = 0;
 		foreach(tlist, plan->targetlist)
 		{
 			TargetEntry *tle = (TargetEntry *) lfirst(tlist);
 			char *name = tle->resname;
-
 			// the name seems to be written inside of ExecInitNode
 			piggyback->resultStatistics->columnStatistics[i].columnDescriptor->rescolumnname = name;
+
 			int useDistinctStatsFromBaseStats = !nodeHasFilter(planstate);
 			//useDistinctStatsFromBaseStats = 0;
 			if (piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal == 0 && useDistinctStatsFromBaseStats == 1) {
@@ -1006,12 +1011,24 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 				HeapTuple statsTuple = SearchSysCache3(STATRELATTINH,
 						ObjectIdGetDatum(relOid), Int16GetDatum(attnum),
 						BoolGetDatum(false));
-				if (statsTuple) {
-					Form_pg_statistic statStruct =
-							(Form_pg_statistic) GETSTRUCT(statsTuple);
+				HeapTuple relTuple = SearchSysCache1(RELOID, ObjectIdGetDatum(relOid));
 
-					piggyback->resultStatistics->columnStatistics[i].distinct_status = statStruct->stadistinct;
+				if (HeapTupleIsValid(statsTuple) && HeapTupleIsValid(relTuple)) {
+					Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
+					float4 n_distinct = statStruct->stadistinct;
+					Form_pg_class pg_class = (Form_pg_class) GETSTRUCT(relTuple);
+					float4 numTuple  = ((Form_pg_class) GETSTRUCT(relTuple))->reltuples;
+
+					if (-1 == n_distinct) {
+						piggyback->resultStatistics->columnStatistics[i].n_distinct = numTuple;
+					} else if (n_distinct < 0 && n_distinct > -1) {
+						piggyback->resultStatistics->columnStatistics[i].n_distinct = numTuple * n_distinct * -1;
+					} else {
+						piggyback->resultStatistics->columnStatistics[i].n_distinct = n_distinct;
+					}
+
 					ReleaseSysCache(statsTuple);
+					ReleaseSysCache(relTuple);
 				}
 			}
 			i++;
