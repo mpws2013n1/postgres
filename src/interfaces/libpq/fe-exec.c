@@ -162,6 +162,7 @@ PQmakeEmptyPGresult(PGconn *conn, ExecStatusType status)
 	result->curBlock = NULL;
 	result->curOffset = 0;
 	result->spaceLeft = 0;
+	result->statistics = NULL;
 
 	if (conn)
 	{
