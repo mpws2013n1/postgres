@@ -353,7 +353,9 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 		break;
 
 	case T_Group:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitGroup((Group *) node, estate, eflags);
+		InvalidateStatisticsForTables(oids);
 		break;
 
 	// we do not want to invalid the statistic values, because they do not change the values from the original tables
