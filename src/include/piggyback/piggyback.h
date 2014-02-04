@@ -60,7 +60,33 @@ int hashset_remove(hashset_t set, void *item);
  * returns non-zero if the item exists and zero otherwise
  */
 int hashset_is_member(hashset_t set, void *item);
+
+unsigned long hash(unsigned char *str);
 //end stolen hashset
+
+//begin stolen hashmap
+/** Hashmap structure (forward declaration) */
+struct s_hashmap;
+typedef struct s_hashmap hashmap;
+
+/** Creates a new hashmap near the given size. */
+extern hashmap* hashmapCreate(int startsize);
+
+/** Inserts a new element into the hashmap. */
+extern void hashmapInsert(hashmap*, const void* data, unsigned long key);
+
+/** Removes the storage for the element of the key and returns the element. */
+extern void* hashmapRemove(hashmap*, unsigned long key);
+
+/** Returns the element for the key. */
+extern void* hashmapGet(hashmap*, unsigned long key);
+
+/** Returns the number of saved elements. */
+extern long hashmapCount(hashmap*);
+
+/** Removes the hashmap structure. */
+extern void hashmapdelete(hashmap*);
+//end stolen hashmap
 
 extern void printIt();
 
@@ -69,7 +95,7 @@ typedef struct _piggyback {
 	be_PGStatistics *resultStatistics;
 	Plan *root;
 	hashset_t *distinctValues;
-	HTAB **twoColumnsCombinations;
+	hashmap **twoColumnsCombinations;
 	// temporary save values for each column of a slot
 	char **slotValues;
 	int numberOfAttributes;

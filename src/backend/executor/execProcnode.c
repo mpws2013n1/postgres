@@ -212,7 +212,7 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 			tableOid = resultAsScanState->ss_currentRelation->rd_id;
 		}
 
-		if (tableOid != -1)
+		if (tableOid != -1 && piggyback != NULL)
 		{
 			LookForFilterWithEquality(result, tableOid, result->qual);
 		}
@@ -717,20 +717,23 @@ void fillFDCandidateMaps() {
 			int indexBlock = i*blockSize;
 			int indexSummand = j>i ? j-1 : j;
 			int index = indexBlock+indexSummand;
-			HTAB* targetMap = piggyback->twoColumnsCombinations[index];
+			hashmap* targetMap = piggyback->twoColumnsCombinations[index];
 			if(targetMap==NULL){
 				continue;
 			}else{
 				bool found;
-				char* rhs = (char*) hash_search(targetMap, piggyback->slotValues[i], HASH_FIND, &found);
-				if(found){
-					if(!rhs==piggyback->slotValues[j]){
+				char* rhs = (char*) hashmapGet(targetMap, hash(piggyback->slotValues[i]));
+//				if(found){
+//					if(!rhs==piggyback->slotValues[j]){
+//						piggyback->twoColumnsCombinations[index]=NULL;
+//					}
+//				} else {
+				if(rhs==0){
+					hashmapInsert(targetMap, (void *)piggyback->slotValues[j],hash(piggyback->slotValues[i]));
+				}else{
+					if(rhs!=piggyback->slotValues[j]){
 						piggyback->twoColumnsCombinations[index]=NULL;
 					}
-				} else {
-					hash_search_with_hash_value(targetMap,
-							&piggyback->slotValues[i], piggyback->slotValues[j],
-							HASH_ENTER, &found);
 				}
 			}
 		}

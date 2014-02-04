@@ -62,7 +62,6 @@
 #include "utils/syscache.h"
 #include "utils/tqual.h"
 #include "postgres.h"
-#include "utils/hsearch.h"
 
 #include "utils/builtins.h"
 
@@ -930,15 +929,12 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 
 		int columnCombinationsCount = (int)((piggyback->numberOfAttributes*piggyback->numberOfAttributes-1));
 
-		piggyback->twoColumnsCombinations = (HTAB*) calloc(columnCombinationsCount,sizeof(HTAB*));
+		piggyback->twoColumnsCombinations = (hashmap*) calloc(columnCombinationsCount,sizeof(hashmap*));
 
 		//create column combinations
 		int cc = 0;
 		for(;cc<columnCombinationsCount;cc++){
-			HASHCTL* uselessHashInfo = (HASHCTL*)(malloc(sizeof(HASHCTL)));
-			char hashTableName[15];
-			sprintf(hashTableName, "colCombi%d", cc);
-			piggyback->twoColumnsCombinations[cc] = hash_create(hashTableName, 10, uselessHashInfo, 0);
+			piggyback->twoColumnsCombinations[cc] = hashmapCreate(1021);
 		}
 
 		piggyback->resultStatistics = (be_PGStatistics*) malloc(sizeof(be_PGStatistics));
