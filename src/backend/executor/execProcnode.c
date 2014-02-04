@@ -132,6 +132,9 @@ void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to, cha
 void LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual);
 void InvalidateStatisticsForTables(List* oldTableOids);
 void InvalidateStatisticsForTable(int tableOid);
+void SetStatisticValuesForEqual(int* equationValue, int columnStatisticId, be_PGAttDesc *columnData);
+void SetStatisticValuesForUnequal(bool greaterThan, bool orEquals,int* equationValue, int columnStatisticId, be_PGAttDesc *columnData);
+
 /* ------------------------------------------------------------------------
  *		ExecInitNode
  *
@@ -449,6 +452,76 @@ InvalidateStatisticsForTable(int tableOid)
 }
 
 void
+SetStatisticValuesForEqual(int* equationValue, int columnStatisticId, be_PGAttDesc *columnData) {
+	// only write values, if the selected field is part of the result table
+	if (columnStatisticId < piggyback->numberOfAttributes){
+		piggyback->resultStatistics->columnStatistics[columnStatisticId].columnDescriptor = columnData;
+		piggyback->resultStatistics->columnStatistics[columnStatisticId].isNumeric = 1;
+		piggyback->resultStatistics->columnStatistics[columnStatisticId].maxValue = equationValue;
+		piggyback->resultStatistics->columnStatistics[columnStatisticId].minValue = equationValue;
+		piggyback->resultStatistics->columnStatistics[columnStatisticId].mostFrequentValue = equationValue;
+		piggyback->resultStatistics->columnStatistics[columnStatisticId].n_distinct = 1;
+
+		// the meta data for this column is complete and should not be calculated again
+		piggyback->resultStatistics->columnStatistics[columnStatisticId].n_distinctIsFinal = 1;
+		piggyback->resultStatistics->columnStatistics[columnStatisticId].minValueIsFinal = 1;
+		piggyback->resultStatistics->columnStatistics[columnStatisticId].maxValueIsFinal = 1;
+		piggyback->resultStatistics->columnStatistics[columnStatisticId].mostFrequentValueIsFinal = 1;
+	}
+	else {
+		printf("there are statistics results from a selection with = that are not part of the result table\n");
+	}
+}
+
+// meaning of the first and second parameter:
+// >=	== greaterThan true, orEquals true
+// > 	== greaterThan true, orEquals false
+// <=	== greaterThan false, orEquals true
+// <	== greaterThan false, orEquals false
+void
+SetStatisticValuesForUnequal(bool greaterThan, bool orEquals, int* equationValue, int columnStatisticId, be_PGAttDesc *columnData) {
+	// only write values, if the selected field is part of the result table
+	int *value = (int*) malloc(sizeof(int));
+	if (!orEquals)
+	{
+		if (greaterThan) // for instance x > 3 means x has at least the value 4
+		{
+			*value = *equationValue + 1;
+		}
+		else // for instance x < 3 means x has at maximum the value 2
+		{
+			*value = *equationValue - 1;
+		}
+	}
+	else
+	{
+		*value = *equationValue;
+	}
+
+	if (columnStatisticId < piggyback->numberOfAttributes)
+	{
+		piggyback->resultStatistics->columnStatistics[columnStatisticId].columnDescriptor = columnData;
+		if(greaterThan)
+			piggyback->resultStatistics->columnStatistics[columnStatisticId].minValue = value;
+		else
+			piggyback->resultStatistics->columnStatistics[columnStatisticId].maxValue = value;
+
+		// the meta data for this column is complete and should not be calculated again
+		if(greaterThan)
+			piggyback->resultStatistics->columnStatistics[columnStatisticId].minValueIsFinal = 1;
+		else
+			piggyback->resultStatistics->columnStatistics[columnStatisticId].maxValueIsFinal = 1;
+
+		piggyback->resultStatistics->columnStatistics[columnStatisticId].n_distinctIsFinal = 0;
+		piggyback->resultStatistics->columnStatistics[columnStatisticId].mostFrequentValueIsFinal = 0;
+	}
+	else
+	{
+		printf("there are statistics results from a selection with > or < with a constant that are not part of the result table\n");
+	}
+}
+
+void
 LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual)
 {
 	if (qual) {
@@ -466,6 +539,8 @@ LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual)
 				break;
 		}
 
+		// the magic numbers are operator identifiers from posgres/src/include/catalog/pg_operator.h
+		// equals
 		if(opno == 94 || opno == 96 || opno == 410 || opno == 416 || opno == 1862 || opno == 1868 || opno == 15 || opno == 532 || opno == 533) { // it is a equality like number_of_tracks = 3
 			int numberOfAttributes = result->plan->targetlist->length;
 
@@ -475,29 +550,54 @@ LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual)
 			// we always set the type to 8byte-integer because we don't need a detailed differentiation
 			columnData->typid = 20;
 
-			// only write values, if the selected field is part of the result table
-			if (i < piggyback->numberOfAttributes)
-			{
-				piggyback->resultStatistics->columnStatistics[i].columnDescriptor = columnData;
-				piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
-				piggyback->resultStatistics->columnStatistics[i].maxValue = minAndMaxAndAvg;
-				piggyback->resultStatistics->columnStatistics[i].minValue = minAndMaxAndAvg;
-				piggyback->resultStatistics->columnStatistics[i].mostFrequentValue = minAndMaxAndAvg;
-				piggyback->resultStatistics->columnStatistics[i].n_distinct = 1;
+			SetStatisticValuesForEqual(minAndMaxAndAvg, i, columnData);
+		}
+		// <
+		else if(opno == 37 || opno == 95 || opno == 97 || opno == 412 || opno == 418 || opno == 534 || opno == 535 || opno == 1864 || opno == 1870) {
 
-				// the meta data for this column is complete and should not be calculated again
-				piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = 1;
-				piggyback->resultStatistics->columnStatistics[i].minValueIsFinal = 1;
-				piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal = 1;
-				piggyback->resultStatistics->columnStatistics[i].mostFrequentValueIsFinal = 1;
-			}
-			else
-			{
-				printf("there are statistics results from the selection that are not part of the result table\n");
-			}
+			int *min = (int*) malloc(sizeof(int));
+			min = &(((Const*) ((OpExpr*) ((ExprState*) linitial(qual))->expr)->args->tail->data.ptr_value)->constvalue);
+
+			// we always set the type to 8byte-integer because we don't need a detailed differentiation
+			columnData->typid = 20;
+
+			SetStatisticValuesForUnequal(false, false, min, i, columnData);
+		}
+		// <=
+		else if(opno == 80 || opno == 414 || opno == 420 || opno == 522 || opno == 523 || opno == 540 || opno == 541 || opno == 1866 || opno == 1872) {
+
+			int *min = (int*) malloc(sizeof(int));
+			min = &(((Const*) ((OpExpr*) ((ExprState*) linitial(qual))->expr)->args->tail->data.ptr_value)->constvalue);
+
+			// we always set the type to 8byte-integer because we don't need a detailed differentiation
+			columnData->typid = 20;
+
+			SetStatisticValuesForUnequal(false, true, min, i, columnData);
+		}
+		// >
+		else if(opno == 76 || opno == 413 || opno == 419 || opno == 520 || opno == 521 || opno == 536 || opno == 1865 || opno == 1871) {
+
+			int *max = (int*) malloc(sizeof(int));
+			max = &(((Const*) ((OpExpr*) ((ExprState*) linitial(qual))->expr)->args->tail->data.ptr_value)->constvalue);
+
+			// we always set the type to 8byte-integer because we don't need a detailed differentiation
+			columnData->typid = 20;
+
+			SetStatisticValuesForUnequal(true, false, max, i, columnData);
+		}
+		// >=
+		else if(opno == 82 || opno == 415 || opno == 430 || opno == 524 || opno == 525 || opno == 537 || opno == 542 || opno == 543 || opno == 1867 || opno == 1873) {
+
+			int *max = (int*) malloc(sizeof(int));
+			max = &(((Const*) ((OpExpr*) ((ExprState*) linitial(qual))->expr)->args->tail->data.ptr_value)->constvalue);
+
+			// we always set the type to 8byte-integer because we don't need a detailed differentiation
+			columnData->typid = 20;
+
+			SetStatisticValuesForUnequal(true, true, max, i, columnData);
 		}
 		else {
-			printf("this opno is no equality: %d (for column id %d)\n", opno, columnId);
+			printf("this opno is no =, <, >, <= or >=: %d (for column id %d)\n", opno, columnId);
 			// found a selection, therefore we cannot use old statistics
 			InvalidateStatisticsForTable(tableOid);
 		}
