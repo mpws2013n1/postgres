@@ -79,6 +79,8 @@ void printFunctionalDependencies(StringInfoData* buf) {
 						fd);
 				fdCount++;
 
+				printf("FD: %s -> %s \n",fd->determinants->rescolumnname, fd->dependent->rescolumnname);
+
 				hashmapDelete(piggyback->twoColumnsCombinations[index]);
 			}
 		}
