@@ -298,8 +298,7 @@ int hashset_is_member(hashset_t set, void *item) {
 //end stolen hashset
 
 //begin stolen hashmap - http://www2.informatik.hu-berlin.de/~weber/slipOff/hashmap_c.html
-/* this should be prime */
-#define TABLE_STARTSIZE 1021
+#define TABLE_STARTSIZE 1000
 
 #define ACTIVE 1
 
@@ -314,51 +313,12 @@ struct s_hashmap{
   long size, count;
 };
 
-static unsigned long isPrime(unsigned long val)
-{
-  int i, p, exp, a;
-
-  for (i = 9; i--;)
-  {
-    a = (rand() % (val-4)) + 2;
-    p = 1;
-    exp = val-1;
-    while (exp)
-    {
-      if (exp & 1)
-        p = (p*a)%val;
-
-      a = (a*a)%val;
-      exp >>= 1;
-    }
-
-    if (p != 1)
-      return 0;
-  }
-
-  return 1;
-}
-
-static int findPrimeGreaterThan(int val)
-{
-  if (val & 1)
-    val+=2;
-  else
-    val++;
-
-  while (!isPrime(val))
-    val+=2;
-
-  return val;
-}
-
 static void rehash(hashmap* hm)
 {
   long size = hm->size;
   hEntry* table = hm->table;
 
   //Assume that a prime sized table is not necessary
-  //hm->size = findPrimeGreaterThan(size<<1);
   hm->size = size*2;
   hm->table = (hEntry*)calloc(sizeof(hEntry), hm->size);
   hm->count = 0;
@@ -373,11 +333,6 @@ static void rehash(hashmap* hm)
 hashmap* hashmapCreate(int startsize)
 {
   hashmap* hm = (hashmap*)malloc(sizeof(hashmap));
-
-  if (!startsize)
-    startsize = TABLE_STARTSIZE;
-  else
-    startsize = findPrimeGreaterThan(startsize-2);
 
   hm->table = (hEntry*)calloc(sizeof(hEntry), startsize);
   hm->size = startsize;

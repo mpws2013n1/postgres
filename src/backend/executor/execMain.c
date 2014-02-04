@@ -934,7 +934,7 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 		//create column combinations
 		int cc = 0;
 		for(;cc<columnCombinationsCount;cc++){
-			piggyback->twoColumnsCombinations[cc] = hashmapCreate(1021);
+			piggyback->twoColumnsCombinations[cc] = hashmapCreate(1000);
 		}
 
 		piggyback->resultStatistics = (be_PGStatistics*) malloc(sizeof(be_PGStatistics));
