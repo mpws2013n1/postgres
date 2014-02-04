@@ -293,7 +293,7 @@ int hashset_is_member(hashset_t set, void *item) {
 }
 //end stolen hashset
 
-//begin stolen hashmap
+//begin stolen hashmap - http://www2.informatik.hu-berlin.de/~weber/slipOff/hashmap_c.html
 /* this should be prime */
 #define TABLE_STARTSIZE 1021
 
