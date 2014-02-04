@@ -704,12 +704,14 @@ ExecProcNode(PlanState *node) {
 	return result;
 }
 
+/*
+ * Stores FD combinations in HashMap, if already existing and conflicting: mark FD as invalid
+ */
 void fillFDCandidateMaps() {
 	int i;
 	int blockSize = piggyback->numberOfAttributes-1;
 	for(i=0; i< piggyback->numberOfAttributes; i++){
 		int j;
-
 		for(j=0; j< piggyback->numberOfAttributes; j++){
 			if(i==j){
 				continue;
@@ -721,13 +723,8 @@ void fillFDCandidateMaps() {
 			if(targetMap==NULL){
 				continue;
 			}else{
-				bool found;
 				char* rhs = (char*) hashmapGet(targetMap, hash(piggyback->slotValues[i]));
-//				if(found){
-//					if(!rhs==piggyback->slotValues[j]){
-//						piggyback->twoColumnsCombinations[index]=NULL;
-//					}
-//				} else {
+
 				if(rhs==0){
 					hashmapInsert(targetMap, (void *)piggyback->slotValues[j],hash(piggyback->slotValues[i]));
 				}else{
