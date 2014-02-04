@@ -983,6 +983,11 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 			*maxValue = INT_MIN;
 			*maxValueTemp = INT_MIN;
 
+			piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = 1;
+			piggyback->resultStatistics->columnStatistics[i].minValueIsFinal = 1;
+			piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal = 1;
+			piggyback->resultStatistics->columnStatistics[i].mostFrequentValueIsFinal = 1;
+
 			piggyback->resultStatistics->columnStatistics[i].n_distinct = -2;
 			piggyback->resultStatistics->columnStatistics[i].minValue = minValue;
 			piggyback->resultStatistics->columnStatistics[i].maxValue = maxValue;
@@ -994,7 +999,9 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 	}
 
 	// ExecInitNode needs existing piggyback->resultStatistics->columnStatistics for all result columns
+	piggyback->tableOids = NULL;
 	planstate = ExecInitNode(plan, estate, eflags);
+	list_free(piggyback->tableOids);
 
 	if (plan->targetlist != NULL) {
 		ListCell *tlist;
@@ -1006,22 +1013,25 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 			// the name seems to be written inside of ExecInitNode
 			piggyback->resultStatistics->columnStatistics[i].columnDescriptor->rescolumnname = name;
 
-			int useDistinctStatsFromBaseStats = !nodeHasFilter(planstate);
-			//useDistinctStatsFromBaseStats = 0;
-			if (piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal == 0 && useDistinctStatsFromBaseStats == 1) {
-				unsigned int relOid = tle->resorigtbl;
+			unsigned int relOid = tle->resorigtbl;
+			HeapTuple statsTuple = NULL;
+			HeapTuple relTuple = NULL;
+			if (relOid != 0) { // This can happen for aggregate columns
 				int attnum = get_attnum(relOid, name);
-				HeapTuple statsTuple = SearchSysCache3(STATRELATTINH,
+				statsTuple = SearchSysCache3(STATRELATTINH,
 						ObjectIdGetDatum(relOid), Int16GetDatum(attnum),
 						BoolGetDatum(false));
-				HeapTuple relTuple = SearchSysCache1(RELOID, ObjectIdGetDatum(relOid));
+				relTuple = SearchSysCache1(RELOID, ObjectIdGetDatum(relOid));
+			}
 
-				if (HeapTupleIsValid(statsTuple) && HeapTupleIsValid(relTuple)) {
-					Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
+			if (HeapTupleIsValid(statsTuple) && HeapTupleIsValid(relTuple)) {
+				Form_pg_statistic statStruct = (Form_pg_statistic) GETSTRUCT(statsTuple);
+				Form_pg_class pg_class = (Form_pg_class) GETSTRUCT(relTuple);
+				float4 numTuple  = ((Form_pg_class) GETSTRUCT(relTuple))->reltuples;
+
+				// do not read distinct values from base statistics if there are already valid values for n_distinct
+				if (-2 == piggyback->resultStatistics->columnStatistics[i].n_distinct) {
 					float4 n_distinct = statStruct->stadistinct;
-					Form_pg_class pg_class = (Form_pg_class) GETSTRUCT(relTuple);
-					float4 numTuple  = ((Form_pg_class) GETSTRUCT(relTuple))->reltuples;
-
 					if (-1 == n_distinct) {
 						piggyback->resultStatistics->columnStatistics[i].n_distinct = numTuple;
 					} else if (n_distinct < 0 && n_distinct > -1) {
@@ -1029,11 +1039,17 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 					} else {
 						piggyback->resultStatistics->columnStatistics[i].n_distinct = n_distinct;
 					}
-
-					ReleaseSysCache(statsTuple);
-					ReleaseSysCache(relTuple);
 				}
+
+				ReleaseSysCache(statsTuple);
+				ReleaseSysCache(relTuple);
+			} else {
+				piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = 0;
 			}
+
+			piggyback->resultStatistics->columnStatistics[i].minValueIsFinal = 0;
+			piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal = 0;
+			piggyback->resultStatistics->columnStatistics[i].mostFrequentValueIsFinal = 0;
 			i++;
 		}
 

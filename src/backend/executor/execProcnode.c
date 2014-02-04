@@ -130,7 +130,8 @@ extern Piggyback *piggyback;
 void fillFDCandidateMaps();
 void addToTwoColumnCombinationHashSet(int from, char* valueToConcat, int to, char* value);
 void LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual);
-
+void InvalidateStatisticsForTables(List* oldTableOids);
+void InvalidateStatisticsForTable(int tableOid);
 /* ------------------------------------------------------------------------
  *		ExecInitNode
  *
@@ -155,6 +156,7 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 	SeqScanState* resultAsScanState;
 	IndexScanState* resultAsIndexScan;
 	IndexOnlyScanState* resultAsIndexOnlyScan;
+	List* oids = NULL;
 	int tableOid = -1;
 	/*
 	 * do nothing when we get to the end of a leaf on tree.
@@ -214,7 +216,10 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 
 		if (tableOid != -1 && piggyback != NULL)
 		{
+			int* tableOidPtr = (int*) malloc(sizeof(int));
+			*tableOidPtr = tableOid;
 			LookForFilterWithEquality(result, tableOid, result->qual);
+			piggyback->tableOids = lappend(piggyback->tableOids, tableOidPtr);
 		}
 		break;
 
@@ -230,7 +235,10 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 
 		if (tableOid != -1)
 		{
+			int* tableOidPtr = (int*) malloc(sizeof(int));
+			*tableOidPtr = tableOid;
 			LookForFilterWithEquality(result, tableOid, resultAsIndexScan->indexqualorig);
+			piggyback->tableOids = lappend(piggyback->tableOids, tableOidPtr);
 		}
 		break;
 
@@ -247,71 +255,89 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 
 		if (tableOid != -1)
 		{
+			int* tableOidPtr = (int*) malloc(sizeof(int));
+			*tableOidPtr = tableOid;
 			LookForFilterWithEquality(result, tableOid, resultAsIndexOnlyScan->indexqual);
+			piggyback->tableOids = lappend(piggyback->tableOids, tableOidPtr);
 		}
 		break;
 
 	case T_BitmapIndexScan:
 		result = (PlanState *) ExecInitBitmapIndexScan((BitmapIndexScan *) node,
 				estate, eflags);
+		printf(" Bitmap ");
 		break;
 
 	case T_BitmapHeapScan:
 		result = (PlanState *) ExecInitBitmapHeapScan((BitmapHeapScan *) node,
 				estate, eflags);
+		printf(" BitmapHeap ");
 		break;
 
 	case T_TidScan:
 		result = (PlanState *) ExecInitTidScan((TidScan *) node, estate,
 				eflags);
+		printf(" Tid ");
 		break;
 
 	case T_SubqueryScan:
 		result = (PlanState *) ExecInitSubqueryScan((SubqueryScan *) node,
 				estate, eflags);
+		printf(" Subquery ");
 		break;
 
 	case T_FunctionScan:
 		result = (PlanState *) ExecInitFunctionScan((FunctionScan *) node,
 				estate, eflags);
+		printf(" Function ");
 		break;
 
 	case T_ValuesScan:
 		result = (PlanState *) ExecInitValuesScan((ValuesScan *) node, estate,
 				eflags);
+		printf(" Values ");
 		break;
 
 	case T_CteScan:
 		result = (PlanState *) ExecInitCteScan((CteScan *) node, estate,
 				eflags);
+		printf(" Cte ");
 		break;
 
 	case T_WorkTableScan:
 		result = (PlanState *) ExecInitWorkTableScan((WorkTableScan *) node,
 				estate, eflags);
+		printf(" WorkTable ");
 		break;
 
 	case T_ForeignScan:
 		result = (PlanState *) ExecInitForeignScan((ForeignScan *) node, estate,
 				eflags);
+		printf(" Foreign ");
 		break;
 
 		/*
 		 * join nodes
 		 */
 	case T_NestLoop:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitNestLoop((NestLoop *) node, estate,
 				eflags);
+		InvalidateStatisticsForTables(oids);
 		break;
 
 	case T_MergeJoin:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitMergeJoin((MergeJoin *) node, estate,
 				eflags);
+		InvalidateStatisticsForTables(oids);
 		break;
 
 	case T_HashJoin:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitHashJoin((HashJoin *) node, estate,
-				eflags);
+						eflags);
+		InvalidateStatisticsForTables(oids);
 		break;
 
 		/*
@@ -327,11 +353,14 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 		break;
 
 	case T_Group:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitGroup((Group *) node, estate, eflags);
+		InvalidateStatisticsForTables(oids);
 		break;
 
+	// we do not want to invalid the statistic values, because they do not change the values from the original tables
 	case T_Agg:
-		result = ExecInitAgg((Agg *) node, estate, eflags);
+		result = (PlanState *) ExecInitAgg((Agg *) node, estate, eflags);
 		break;
 
 	case T_WindowAgg:
@@ -390,6 +419,36 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 }
 
 void
+InvalidateStatisticsForTables(List* oldTableOids)
+{
+	List* relevantTableOids = NULL;
+	ListCell* l;
+	relevantTableOids = list_difference(piggyback->tableOids, oldTableOids);
+	foreach (l, relevantTableOids)
+	{
+		int currentOid = *((int*)lfirst(l));
+		InvalidateStatisticsForTable(currentOid);
+	}
+}
+
+void
+InvalidateStatisticsForTable(int tableOid)
+{
+	int i = 0;
+	for (; i < piggyback->numberOfAttributes; i++)
+	{
+		if (tableOid == piggyback->resultStatistics->columnStatistics[i].columnDescriptor->srctableid)
+		{
+			// this columnStatistic is obsolete
+			piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = 0;
+			piggyback->resultStatistics->columnStatistics[i].minValueIsFinal = 0;
+			piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal = 0;
+			piggyback->resultStatistics->columnStatistics[i].mostFrequentValueIsFinal = 0;
+		}
+	}
+}
+
+void
 LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual)
 {
 	if (qual) {
@@ -406,8 +465,6 @@ LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual)
 					&& columnData->srccolumnid == piggyback->resultStatistics->columnStatistics[i].columnDescriptor->srccolumnid)
 				break;
 		}
-
-		// TODO: if (i < piggyback->numberOfAttributes) set useBaseStatistics to false
 
 		if(opno == 94 || opno == 96 || opno == 410 || opno == 416 || opno == 1862 || opno == 1868 || opno == 15 || opno == 532 || opno == 533) { // it is a equality like number_of_tracks = 3
 			int numberOfAttributes = result->plan->targetlist->length;
@@ -438,6 +495,11 @@ LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual)
 			{
 				printf("there are statistics results from the selection that are not part of the result table\n");
 			}
+		}
+		else {
+			printf("this opno is no equality: %d (for column id %d)\n", opno, columnId);
+			// found a selection, therefore we cannot use old statistics
+			InvalidateStatisticsForTable(tableOid);
 		}
 	}
 }
