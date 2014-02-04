@@ -511,6 +511,9 @@ SetStatisticValuesForUnequal(bool greaterThan, bool orEquals, int* equationValue
 			piggyback->resultStatistics->columnStatistics[columnStatisticId].minValueIsFinal = 1;
 		else
 			piggyback->resultStatistics->columnStatistics[columnStatisticId].maxValueIsFinal = 1;
+
+		piggyback->resultStatistics->columnStatistics[columnStatisticId].n_distinctIsFinal = 0;
+		piggyback->resultStatistics->columnStatistics[columnStatisticId].mostFrequentValueIsFinal = 0;
 	}
 	else
 	{
