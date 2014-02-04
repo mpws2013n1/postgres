@@ -19,6 +19,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+void hashmapDelete(hashmap* hash);
+
 void printIt() {
 	printf("THIS IS PRINTED");
 	return;
@@ -76,6 +78,8 @@ void printFunctionalDependencies(StringInfoData* buf) {
 						piggyback->resultStatistics->functionalDependencies,
 						fd);
 				fdCount++;
+
+				hashmapDelete(piggyback->twoColumnsCombinations[index]);
 			}
 		}
 	}
@@ -353,7 +357,9 @@ static void rehash(hashmap* hm)
   long size = hm->size;
   hEntry* table = hm->table;
 
-  hm->size = findPrimeGreaterThan(size<<1);
+  //Assume that a prime sized table is not necessary
+  //hm->size = findPrimeGreaterThan(size<<1);
+  hm->size = size*2;
   hm->table = (hEntry*)calloc(sizeof(hEntry), hm->size);
   hm->count = 0;
 

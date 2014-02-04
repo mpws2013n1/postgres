@@ -729,6 +729,7 @@ void fillFDCandidateMaps() {
 					hashmapInsert(targetMap, (void *)piggyback->slotValues[j],hash(piggyback->slotValues[i]));
 				}else{
 					if(rhs!=piggyback->slotValues[j]){
+						hashmapDelete(piggyback->twoColumnsCombinations[index]);
 						piggyback->twoColumnsCombinations[index]=NULL;
 					}
 				}
