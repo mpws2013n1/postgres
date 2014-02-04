@@ -94,6 +94,7 @@ extern void printIt();
 typedef struct _piggyback {
 	be_PGStatistics *resultStatistics;
 	Plan *root;
+	bool fdsPruned;
 	hashset_t *distinctValues;
 	hashmap **twoColumnsCombinations;
 	// temporary save values for each column of a slot

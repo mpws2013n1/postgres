@@ -704,10 +704,42 @@ ExecProcNode(PlanState *node) {
 	return result;
 }
 
+void prune(){
+	int i;
+	int blockSize = piggyback->numberOfAttributes - 1;
+	for (i = 0; i < piggyback->numberOfAttributes; i++) {
+		int j;
+		for (j = 0; j < piggyback->numberOfAttributes; j++) {
+			if (i == j) {
+				continue;
+			}
+			int indexBlock = i * blockSize;
+			int indexSummand = j > i ? j - 1 : j;
+			int index = indexBlock + indexSummand;
+
+			if (piggyback->resultStatistics->columnStatistics[i].n_distinct != 0
+					&& piggyback->resultStatistics->columnStatistics[j].n_distinct != 0) {
+				if (piggyback->resultStatistics->columnStatistics[i].n_distinct
+						< piggyback->resultStatistics->columnStatistics[j].n_distinct
+						&& piggyback->resultStatistics->columnStatistics[j].n_distinctIsFinal) {
+					hashmapDelete(piggyback->twoColumnsCombinations[index]);
+					piggyback->twoColumnsCombinations[index] = NULL;
+				}
+			}
+		}
+	}
+}
+
 /*
  * Stores FD combinations in HashMap, if already existing and conflicting: mark FD as invalid
  */
 void fillFDCandidateMaps() {
+
+	if(!piggyback->fdsPruned){
+		prune();
+		piggyback->fdsPruned = true;
+	}
+
 	int i;
 	int blockSize = piggyback->numberOfAttributes-1;
 	for(i=0; i< piggyback->numberOfAttributes; i++){

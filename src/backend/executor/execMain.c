@@ -922,6 +922,7 @@ InitPlan(QueryDesc *queryDesc, int eflags)
 	if (plan->targetlist != NULL) {
 		piggyback = (Piggyback*) (malloc(sizeof(Piggyback)));
 		piggyback->root = NULL;
+		piggyback->fdsPruned = false;
 		piggyback->numberOfAttributes = plan->targetlist->length;
 		piggyback->slotValues = (char**)malloc(piggyback->numberOfAttributes * sizeof(char*));
 
