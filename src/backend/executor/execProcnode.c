@@ -819,13 +819,31 @@ ExecProcNode(PlanState *node) {
 						break;
 					}
 					case NUMERICOID: { // Decimal
-						//piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
-						int value = (float) (datum);
-						//printf("Numeric: %f, casted: %d \n",(float)(datum),value);
+						piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
+						double *val_pntr = (double*) malloc(sizeof(double));
+						double value = (double) (datum);
+						*val_pntr = value;
+
+						// Write temporary slot value for FD calculation
 						char* cvalue = calloc(20, sizeof(char));
-						sprintf(cvalue, "%d", value);
+						sprintf(cvalue, "%f", value);
 						piggyback->slotValues[i] = cvalue;
 
+						if (value < *((double*) (piggyback->resultStatistics->columnStatistics[i].minValueTemp))) {
+							piggyback->resultStatistics->columnStatistics[i].minValueTemp = val_pntr;
+							if (piggyback->resultStatistics->columnStatistics[i].minValueTemp == piggyback->resultStatistics->columnStatistics[i].minValue)
+								piggyback->resultStatistics->columnStatistics[i].minValueIsFinal = TRUE;
+						}
+						if (value > *((double*) (piggyback->resultStatistics->columnStatistics[i].maxValueTemp))) {
+							piggyback->resultStatistics->columnStatistics[i].maxValueTemp = val_pntr;
+							if (piggyback->resultStatistics->columnStatistics[i].maxValueTemp == piggyback->resultStatistics->columnStatistics[i].maxValue)
+								piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal = TRUE;
+						}
+						if (!piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal) {
+							hashset_add_integer(piggyback->distinctValues[i], value);
+							if (hashset_num_items(piggyback->distinctValues) == piggyback->resultStatistics->columnStatistics[i].n_distinct) //TODO make sure there is the actual number in here, not the status
+								piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = TRUE;
+						}
 						break;
 					}
 					case BPCHAROID:
