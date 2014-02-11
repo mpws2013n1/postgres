@@ -80,6 +80,7 @@ void printFunctionalDependencies(StringInfoData* buf) {
 					fd->dependent = colJDesc;
 					piggyback->resultStatistics->functionalDependencies = lappend(piggyback->resultStatistics->functionalDependencies, fd);
 					fdCount++;
+					printf("FD: %s -> %s \n", colIDesc->rescolumnname, colJDesc->rescolumnname);
 				}
 				if (distinctCountJ == twoColumnCombinationOfIAndJ) {
 					be_PGFunctionalDependency* fd = calloc(1, sizeof(be_PGFunctionalDependency));
@@ -87,6 +88,7 @@ void printFunctionalDependencies(StringInfoData* buf) {
 					fd->dependent = colIDesc;
 					piggyback->resultStatistics->functionalDependencies = lappend(piggyback->resultStatistics->functionalDependencies, fd);
 					fdCount++;
+					printf("FD: %s -> %s \n", colJDesc->rescolumnname, colIDesc->rescolumnname);
 				}
 			}
 		}
