@@ -819,9 +819,9 @@ ExecProcNode(PlanState *node) {
 						break;
 					}
 					case NUMERICOID: { // Decimal
-						piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
-						double *val_pntr = (double*) malloc(sizeof(double));
-						double value = (double) (datum);
+						//piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
+						float *val_pntr = (float*) malloc(sizeof(float));
+						float value = DatumGet(datum);
 						*val_pntr = value;
 
 						// Write temporary slot value for FD calculation
@@ -829,7 +829,35 @@ ExecProcNode(PlanState *node) {
 						sprintf(cvalue, "%f", value);
 						piggyback->slotValues[i] = cvalue;
 
-						if (value < *((double*) (piggyback->resultStatistics->columnStatistics[i].minValueTemp))) {
+						/*if (value < *((float*) (piggyback->resultStatistics->columnStatistics[i].minValueTemp))) {
+							piggyback->resultStatistics->columnStatistics[i].minValueTemp = val_pntr;
+							if (piggyback->resultStatistics->columnStatistics[i].minValueTemp == piggyback->resultStatistics->columnStatistics[i].minValue)
+								piggyback->resultStatistics->columnStatistics[i].minValueIsFinal = TRUE;
+						}
+						if (value > *((float*) (piggyback->resultStatistics->columnStatistics[i].maxValueTemp))) {
+							piggyback->resultStatistics->columnStatistics[i].maxValueTemp = val_pntr;
+							if (piggyback->resultStatistics->columnStatistics[i].maxValueTemp == piggyback->resultStatistics->columnStatistics[i].maxValue)
+								piggyback->resultStatistics->columnStatistics[i].maxValueIsFinal = TRUE;
+						}
+						if (!piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal) {
+							hashset_add_integer(piggyback->distinctValues[i], value);
+							if (hashset_num_items(piggyback->distinctValues) == piggyback->resultStatistics->columnStatistics[i].n_distinct) //TODO make sure there is the actual number in here, not the status
+								piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = TRUE;
+						}*/
+						break;
+					}
+					case FLOAT8OID: { // double
+						//piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
+						double *val_pntr = (double*) malloc(sizeof(double));
+						double value = DatumGetFloat8(datum);
+						*val_pntr = value;
+
+						// Write temporary slot value for FD calculation
+						char* cvalue = calloc(20, sizeof(char));
+						sprintf(cvalue, "%f", value);
+						piggyback->slotValues[i] = cvalue;
+
+						/*if (value < *((double*) (piggyback->resultStatistics->columnStatistics[i].minValueTemp))) {
 							piggyback->resultStatistics->columnStatistics[i].minValueTemp = val_pntr;
 							if (piggyback->resultStatistics->columnStatistics[i].minValueTemp == piggyback->resultStatistics->columnStatistics[i].minValue)
 								piggyback->resultStatistics->columnStatistics[i].minValueIsFinal = TRUE;
@@ -843,7 +871,7 @@ ExecProcNode(PlanState *node) {
 							hashset_add_integer(piggyback->distinctValues[i], value);
 							if (hashset_num_items(piggyback->distinctValues) == piggyback->resultStatistics->columnStatistics[i].n_distinct) //TODO make sure there is the actual number in here, not the status
 								piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal = TRUE;
-						}
+						}*/
 						break;
 					}
 					case BPCHAROID:
