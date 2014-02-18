@@ -566,6 +566,9 @@ LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual)
 				break;
 		}
 
+		// invalid all columns of this table, because there is a selection
+		InvalidateStatisticsForTable(tableOid);
+
 		// the magic numbers are operator identifiers from posgres/src/include/catalog/pg_operator.h
 		// equals
 		if(opno == 94 || opno == 96 || opno == 410 || opno == 416 || opno == 1862 || opno == 1868 || opno == 15 || opno == 532 || opno == 533) { // it is a equality like number_of_tracks = 3
@@ -626,7 +629,7 @@ LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual)
 		else {
 			printf("this opno is no =, <, >, <= or >=: %d (for column id %d)\n", opno, columnId);
 			// found a selection, therefore we cannot use old statistics
-			InvalidateStatisticsForTable(tableOid);
+			// InvalidateStatisticsForTable(tableOid); (this has to be always, because there could be more than one column of this table in the result
 		}
 	}
 }
