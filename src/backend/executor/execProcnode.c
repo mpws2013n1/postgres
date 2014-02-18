@@ -791,7 +791,7 @@ ExecProcNode(PlanState *node) {
 					case INT4OID: { // Int
 						piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
 						int *val_pntr = (int*) malloc(sizeof(int));
-						int value = (int) (datum);
+						int value = DatumGetInt32(datum);
 						*val_pntr = value;
 
 						// Write temporary slot value for FD calculation
@@ -819,17 +819,25 @@ ExecProcNode(PlanState *node) {
 						}
 						break;
 					}
-					case NUMERICOID: // Decimal
-					//case FLOAT4OID: { // double
-						//piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
-						Numeric *val_pntr = (Numeric*) malloc(sizeof(Numeric));
-						Numeric value = DatumGetNumeric(datum);
+					case NUMERICOID: {// Decimal
+						piggyback->resultStatistics->columnStatistics[i].isNumeric = 0;
+						double *val_pntr = (double*) malloc(sizeof(double));
+						Numeric numericValue = DatumGetNumeric(datum);
+						char* cvalue = DatumGetCString(DirectFunctionCall1(numeric_out,
+								  NumericGetDatum(numericValue)));
+						double value = atof(cvalue);
 						*val_pntr = value;
 
-						// Write temporary slot value for FD calculation
-						char* cvalue = calloc(20, sizeof(char));
-						sprintf(cvalue, "%d", value);
 						piggyback->slotValues[i] = cvalue;
+
+						if (!piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal) {
+							hashset_add_string(piggyback->distinctValues[i],
+									piggyback->slotValues[i]);
+							if (hashset_num_items(piggyback->distinctValues[i])
+									== piggyback->resultStatistics->columnStatistics[i].n_distinct)
+								piggyback->resultStatistics->columnStatistics[i].n_distinctIsFinal =
+										TRUE;
+						}
 
 						break;
 					}

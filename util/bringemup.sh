@@ -1,3 +1,3 @@
 #!/bin/sh
   
- xterm -e "psql musicbrainz"
+ xterm -e "psql tpch"
