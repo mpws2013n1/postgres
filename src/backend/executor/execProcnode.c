@@ -797,6 +797,9 @@ ExecProcNode(PlanState *node) {
 	/*
 	 * Process with piggyback if current node is root node.
 	 */
+
+	bool calculateFDs = false;
+
 	if (piggyback != NULL) {
 		if (node->plan == piggyback->root && result && !result->tts_isempty && result->tts_tupleDescriptor) {
 			piggyback->numberOfAttributes = result->tts_tupleDescriptor->natts;
@@ -898,7 +901,9 @@ ExecProcNode(PlanState *node) {
 					}
 				}
 			}
-			fillFDCandidateMaps();
+			if (calculateFDs) {
+				fillFDCandidateMaps();
+			}
 		}
 	}
 
