@@ -176,32 +176,44 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 		break;
 
 	case T_ModifyTable:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitModifyTable((ModifyTable *) node, estate,
 				eflags);
+		InvalidateStatisticsForTables(oids);
 		break;
 
 	case T_Append:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitAppend((Append *) node, estate, eflags);
+		InvalidateStatisticsForTables(oids);
 		break;
 
 	case T_MergeAppend:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitMergeAppend((MergeAppend *) node, estate,
 				eflags);
+		InvalidateStatisticsForTables(oids);
 		break;
 
 	case T_RecursiveUnion:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitRecursiveUnion((RecursiveUnion *) node,
 				estate, eflags);
+		InvalidateStatisticsForTables(oids);
 		break;
 
 	case T_BitmapAnd:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitBitmapAnd((BitmapAnd *) node, estate,
 				eflags);
+		InvalidateStatisticsForTables(oids);
 		break;
 
 	case T_BitmapOr:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitBitmapOr((BitmapOr *) node, estate,
 				eflags);
+		InvalidateStatisticsForTables(oids);
 		break;
 
 		/*
@@ -354,12 +366,16 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 
 	// we do not want to invalid the statistic values, because they do not change the values from the original tables
 	case T_Agg:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitAgg((Agg *) node, estate, eflags);
+		InvalidateStatisticsForTables(oids);
 		break;
 
 	case T_WindowAgg:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitWindowAgg((WindowAgg *) node, estate,
 				eflags);
+		InvalidateStatisticsForTables(oids);
 		break;
 
 	case T_Unique:
@@ -380,7 +396,9 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 		break;
 
 	case T_Limit:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitLimit((Limit *) node, estate, eflags);
+		InvalidateStatisticsForTables(oids);
 		break;
 
 	default:
@@ -416,11 +434,29 @@ void
 InvalidateStatisticsForTables(List* oldTableOids)
 {
 	List* relevantTableOids = NULL;
-	ListCell* l;
-	relevantTableOids = list_difference(piggyback->tableOids, oldTableOids);
-	foreach (l, relevantTableOids)
+	ListCell* l1;
+	ListCell* l2;
+	//relevantTableOids = list_difference(piggyback->tableOids, oldTableOids);
+	foreach(l1, piggyback->tableOids)
 	{
-		int currentOid = *((int*)lfirst(l));
+		int isNewOid = 1;
+		foreach(l2, oldTableOids)
+		{
+			if (*((int*)lfirst(l1)) == *((int*)lfirst(l2)))
+			{
+				isNewOid = 0;
+				break;
+			}
+		}
+		if (isNewOid == 1)
+		{
+			relevantTableOids = lappend(relevantTableOids, (int*)lfirst(l1));
+		}
+	}
+
+	foreach (l1, relevantTableOids)
+	{
+		int currentOid = *((int*)lfirst(l1));
 		InvalidateStatisticsForTable(currentOid);
 	}
 }
@@ -530,6 +566,9 @@ LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual)
 				break;
 		}
 
+		// invalid all columns of this table, because there is a selection
+		InvalidateStatisticsForTable(tableOid);
+
 		// the magic numbers are operator identifiers from posgres/src/include/catalog/pg_operator.h
 		// equals
 		if(opno == 94 || opno == 96 || opno == 410 || opno == 416 || opno == 1862 || opno == 1868 || opno == 15 || opno == 532 || opno == 533) { // it is a equality like number_of_tracks = 3
@@ -590,7 +629,7 @@ LookForFilterWithEquality(PlanState* result, Oid tableOid, List* qual)
 		else {
 			printf("this opno is no =, <, >, <= or >=: %d (for column id %d)\n", opno, columnId);
 			// found a selection, therefore we cannot use old statistics
-			InvalidateStatisticsForTable(tableOid);
+			// InvalidateStatisticsForTable(tableOid); (this has to be always, because there could be more than one column of this table in the result
 		}
 	}
 }
