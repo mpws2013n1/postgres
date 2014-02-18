@@ -113,6 +113,7 @@
 #include "executor/nodeWorktablescan.h"
 #include "miscadmin.h"
 
+#include "utils/numeric.h"
 #include "utils/hsearch.h"
 #include "utils/builtins.h"
 #include "utils/rel.h"
@@ -818,10 +819,14 @@ ExecProcNode(PlanState *node) {
 						}
 						break;
 					}
-					case NUMERICOID: { // Decimal
+					case NUMERICOID: // Decimal
+					//case FLOAT4OID: { // double
 						//piggyback->resultStatistics->columnStatistics[i].isNumeric = 1;
-						int value = (float) (datum);
-						//printf("Numeric: %f, casted: %d \n",(float)(datum),value);
+						Numeric *val_pntr = (Numeric*) malloc(sizeof(Numeric));
+						Numeric value = DatumGetNumeric(datum);
+						*val_pntr = value;
+
+						// Write temporary slot value for FD calculation
 						char* cvalue = calloc(20, sizeof(char));
 						sprintf(cvalue, "%d", value);
 						piggyback->slotValues[i] = cvalue;
