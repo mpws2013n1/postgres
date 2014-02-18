@@ -2712,6 +2712,14 @@ printQuery(const PGresult *result, const printQueryOpt *opt, FILE *fout, FILE *f
 	}
 
 	if (result->statistics && result->statistics->functionalDependencies) {
+		// print number of tuples
+		char rowString[50];
+		sprintf(rowString,
+				ngettext("\n(%d tuple)\n", "\n(%d tuples)\n", cont.nrows),
+				cont.nrows);
+		printTableAddFooter(&cont, rowString);
+
+		// print functional dependencies
 		printTableAddFooter(&cont, "functional dependencies of the query result: \n");
 		for (i = 0; i < result->statistics->functionalDependenciesCount; i++) {
 			char fdString[255];
