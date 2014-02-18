@@ -363,12 +363,16 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 
 	// we do not want to invalid the statistic values, because they do not change the values from the original tables
 	case T_Agg:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitAgg((Agg *) node, estate, eflags);
+		InvalidateStatisticsForTables(oids);
 		break;
 
 	case T_WindowAgg:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitWindowAgg((WindowAgg *) node, estate,
 				eflags);
+		InvalidateStatisticsForTables(oids);
 		break;
 
 	case T_Unique:
@@ -389,7 +393,9 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 		break;
 
 	case T_Limit:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitLimit((Limit *) node, estate, eflags);
+		InvalidateStatisticsForTables(oids);
 		break;
 
 	default:
@@ -441,7 +447,7 @@ InvalidateStatisticsForTables(List* oldTableOids)
 		}
 		if (isNewOid == 1)
 		{
-			lappend(relevantTableOids, l1);
+			relevantTableOids = lappend(relevantTableOids, (int*)lfirst(l1));
 		}
 	}
 
