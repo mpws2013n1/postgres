@@ -425,11 +425,29 @@ void
 InvalidateStatisticsForTables(List* oldTableOids)
 {
 	List* relevantTableOids = NULL;
-	ListCell* l;
-	relevantTableOids = list_difference(piggyback->tableOids, oldTableOids);
-	foreach (l, relevantTableOids)
+	ListCell* l1;
+	ListCell* l2;
+	//relevantTableOids = list_difference(piggyback->tableOids, oldTableOids);
+	foreach(l1, piggyback->tableOids)
 	{
-		int currentOid = *((int*)lfirst(l));
+		int isNewOid = 1;
+		foreach(l2, oldTableOids)
+		{
+			if (*((int*)lfirst(l1)) == *((int*)lfirst(l2)))
+			{
+				isNewOid = 0;
+				break;
+			}
+		}
+		if (isNewOid == 1)
+		{
+			lappend(relevantTableOids, l1);
+		}
+	}
+
+	foreach (l1, relevantTableOids)
+	{
+		int currentOid = *((int*)lfirst(l1));
 		InvalidateStatisticsForTable(currentOid);
 	}
 }
