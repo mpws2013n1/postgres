@@ -176,32 +176,44 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 		break;
 
 	case T_ModifyTable:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitModifyTable((ModifyTable *) node, estate,
 				eflags);
+		InvalidateStatisticsForTables(oids);
 		break;
 
 	case T_Append:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitAppend((Append *) node, estate, eflags);
+		InvalidateStatisticsForTables(oids);
 		break;
 
 	case T_MergeAppend:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitMergeAppend((MergeAppend *) node, estate,
 				eflags);
+		InvalidateStatisticsForTables(oids);
 		break;
 
 	case T_RecursiveUnion:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitRecursiveUnion((RecursiveUnion *) node,
 				estate, eflags);
+		InvalidateStatisticsForTables(oids);
 		break;
 
 	case T_BitmapAnd:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitBitmapAnd((BitmapAnd *) node, estate,
 				eflags);
+		InvalidateStatisticsForTables(oids);
 		break;
 
 	case T_BitmapOr:
+		oids = piggyback->tableOids;
 		result = (PlanState *) ExecInitBitmapOr((BitmapOr *) node, estate,
 				eflags);
+		InvalidateStatisticsForTables(oids);
 		break;
 
 		/*
@@ -268,55 +280,46 @@ ExecInitNode(Plan *node, EState *estate, int eflags) {
 	case T_BitmapIndexScan:
 		result = (PlanState *) ExecInitBitmapIndexScan((BitmapIndexScan *) node,
 				estate, eflags);
-		printf(" Bitmap ");
 		break;
 
 	case T_BitmapHeapScan:
 		result = (PlanState *) ExecInitBitmapHeapScan((BitmapHeapScan *) node,
 				estate, eflags);
-		printf(" BitmapHeap ");
 		break;
 
 	case T_TidScan:
 		result = (PlanState *) ExecInitTidScan((TidScan *) node, estate,
 				eflags);
-		printf(" Tid ");
 		break;
 
 	case T_SubqueryScan:
 		result = (PlanState *) ExecInitSubqueryScan((SubqueryScan *) node,
 				estate, eflags);
-		printf(" Subquery ");
 		break;
 
 	case T_FunctionScan:
 		result = (PlanState *) ExecInitFunctionScan((FunctionScan *) node,
 				estate, eflags);
-		printf(" Function ");
 		break;
 
 	case T_ValuesScan:
 		result = (PlanState *) ExecInitValuesScan((ValuesScan *) node, estate,
 				eflags);
-		printf(" Values ");
 		break;
 
 	case T_CteScan:
 		result = (PlanState *) ExecInitCteScan((CteScan *) node, estate,
 				eflags);
-		printf(" Cte ");
 		break;
 
 	case T_WorkTableScan:
 		result = (PlanState *) ExecInitWorkTableScan((WorkTableScan *) node,
 				estate, eflags);
-		printf(" WorkTable ");
 		break;
 
 	case T_ForeignScan:
 		result = (PlanState *) ExecInitForeignScan((ForeignScan *) node, estate,
 				eflags);
-		printf(" Foreign ");
 		break;
 
 		/*
