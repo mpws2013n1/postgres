@@ -1,13 +1,7 @@
 Piggyback Profiling: Enhancing Query Results with Metadata
-SQL-based data exploration is tedious. Any given query might be followed up by another query simply to count the number
-of distinct values of an interesting column or to find out its range of values. Besides the actual query output,
-each result also embodies various metadata, which are not visible to the user and not (yet) determined by the DBMS.
-These metadata can be useful to understand the data, assess its quality, or spark interesting insights. Our approach
-piggybacks metadata calculation on the usual query processing with minimal overhead, by making use of specific properties
+SQL-based data exploration is tedious. Any given query might be followed up by another query simply to count the number of distinct values of an interesting column or to find out its range of values. Besides the actual query output, each result also embodies various metadata, which are not visible to the user and not (yet) determined by the DBMS.
+These metadata can be useful to understand the data, assess its quality, or spark interesting insights. Our approach piggybacks metadata calculation on the usual query processing with minimal overhead, by making use of specific properties
 of the query plan nodes. We describe our extension of an RDBMS and show that its runtime overhead is usually less than 10\%.
- 
-This directory contains the complete Code of PostgreSQL as well as changes in some files to enable piggybacking of metadata.
-Most changes have been made inside the Executor and the Client. To compile and execute, please perform the steps for a manual
+This directory contains the complete Code of PostgreSQL as well as changes in some files to enable piggybacking of metadata. Most changes have been made inside the Executor and the Client. To compile and execute, please perform the steps for a manual
 source code installation from http://www.postgresql.org/docs/9.4/static/installation.html.
- 
 The command line interface will accept SPJ queries and return not only their result but additional metadata.
